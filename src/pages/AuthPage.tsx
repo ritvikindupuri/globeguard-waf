@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import deflectraLogo from '@/assets/deflectra-logo.png';
+import deflectraIcon from '@/assets/deflectra-icon.png';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
