@@ -183,7 +183,7 @@ export default function SiteManager() {
             </div>
             <div className="flex items-center gap-2">
               <Loader2 className="w-3 h-3 animate-spin text-primary" />
-              <span>Simulating threat traffic for dashboard data...</span>
+              <span>Finalizing protection configuration...</span>
             </div>
           </div>
         </div>
