@@ -55,15 +55,18 @@ serve(async (req) => {
     };
     if (clientIp !== "unknown") {
       try {
-        const geoRes = await fetch(`https://ipapi.co/${clientIp}/json/`);
+        const geoRes = await fetch(`https://ipinfo.io/${clientIp}/json`);
+        const geoText = await geoRes.text();
+        console.log("Geo response for", clientIp, ":", geoText);
         if (geoRes.ok) {
-          const geo = await geoRes.json();
-          if (geo.latitude && geo.longitude) {
-            geoData = { lat: geo.latitude, lng: geo.longitude, country: geo.country_name || null };
+          const geo = JSON.parse(geoText);
+          if (geo.loc) {
+            const [lat, lng] = geo.loc.split(",").map(Number);
+            geoData = { lat, lng, country: geo.country || null };
           }
         }
-      } catch {
-        // Geolocation failed, continue without it
+      } catch (e) {
+        console.error("Geolocation error:", e);
       }
     }
     const requestMethod = req.method;
