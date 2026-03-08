@@ -14,6 +14,7 @@ import APIProtectionPage from "./pages/APIProtectionPage";
 import AIDetectionPage from "./pages/AIDetectionPage";
 import RateLimitingPage from "./pages/RateLimitingPage";
 import SettingsPage from "./pages/SettingsPage";
+import SetupGuidePage from "./pages/SetupGuidePage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
