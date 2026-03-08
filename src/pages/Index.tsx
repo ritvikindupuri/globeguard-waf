@@ -45,7 +45,7 @@ const Index = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-xs font-mono text-muted-foreground mt-1">CERBERUS WAF • REAL-TIME THREAT MONITORING</p>
+        <p className="text-xs font-mono text-muted-foreground mt-1">DEFLECTRA WAF • REAL-TIME THREAT MONITORING</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
@@ -54,7 +54,7 @@ const Index = () => {
         <StatCard icon={Globe} title="Countries" value={stats.countries.toString()} change="Attack sources" changeType="neutral" variant="default" />
         <StatCard icon={Zap} title="Avg Response" value="—" change="Proxy required" changeType="neutral" variant="accent" />
         <StatCard icon={Server} title="Protected Sites" value={stats.protectedSites.toString()} change="From database" changeType="neutral" variant="primary" />
-        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="google/gemini-3-flash" changeType="positive" variant="accent" />
+        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="gemini-3-flash" changeType="positive" variant="accent" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

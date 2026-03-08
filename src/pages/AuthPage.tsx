@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import cerberusLogo from '@/assets/cerberus-logo.png';
+import deflectraLogo from '@/assets/deflectra-logo.png';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -37,9 +37,9 @@ export default function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-3">
-          <img src={cerberusLogo} alt="Cerberus WAF" className="w-20 h-20 mx-auto" />
+          <img src={deflectraLogo} alt="Deflectra" className="w-20 h-20 mx-auto" />
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-wide">CERBERUS</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-wide">DEFLECTRA</h1>
             <p className="text-xs font-mono text-muted-foreground tracking-widest mt-1">
               WEB APPLICATION FIREWALL
             </p>
@@ -63,7 +63,7 @@ export default function AuthPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="email"
-                  placeholder="operator@cerberus.security"
+                  placeholder="operator@deflectra.io"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-secondary border-border pl-10 font-mono text-sm"
@@ -109,7 +109,7 @@ export default function AuthPage() {
         </div>
 
         <p className="text-center text-[10px] font-mono text-muted-foreground">
-          CERBERUS WAF v3.0 • ENCRYPTED CONNECTION • AI-POWERED
+          DEFLECTRA v3.0 • ENCRYPTED CONNECTION • AI-POWERED
         </p>
       </div>
     </div>

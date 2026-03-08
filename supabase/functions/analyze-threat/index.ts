@@ -55,7 +55,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are CERBERUS, an AI-powered Web Application Firewall threat analyzer. 
+            content: `You are DEFLECTRA, an AI-powered Web Application Firewall threat analyzer. 
 Analyze incoming HTTP requests for security threats. You must respond with a tool call.
 
 Threat categories you detect:
@@ -165,7 +165,7 @@ If it contains any suspicious patterns, classify appropriately.`
       analysis,
       logged: analysis.is_threat,
       model: "google/gemini-3-flash-preview",
-      engine: "CERBERUS AI v3.0",
+      engine: "DEFLECTRA AI v3.0",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
