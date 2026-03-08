@@ -1,0 +1,2 @@
+INSERT INTO public.protected_sites (user_id, name, url, status, ssl_valid)
+VALUES ('dc5d0805-9287-48df-9cb4-c55b8d21d8b2', 'Portfolio Backend (Edge Functions)', 'https://nvgfgoykyeouwrksszpb.supabase.co/functions/v1', 'active', true);
