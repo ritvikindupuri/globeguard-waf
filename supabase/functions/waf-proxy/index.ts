@@ -145,6 +145,14 @@ serve(async (req) => {
             if (aiAnalysis.is_threat && aiAnalysis.action === "blocked") {
               blocked = true;
             }
+            // Use AI-estimated geo data
+            if (aiAnalysis.source_lat && aiAnalysis.source_lng) {
+              geoData = {
+                lat: aiAnalysis.source_lat,
+                lng: aiAnalysis.source_lng,
+                country: aiAnalysis.source_country || null,
+              };
+            }
           }
         }
       } catch (e) {
