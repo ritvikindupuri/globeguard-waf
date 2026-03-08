@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Bell, Key, LogOut } from 'lucide-react';
+import { Shield, Bell, Key, LogOut, Send, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -12,12 +12,17 @@ export default function SettingsPage() {
   const [defaultAction, setDefaultAction] = useState('block');
   const [webhookUrl, setWebhookUrl] = useState('');
   const [alertEmail, setAlertEmail] = useState('');
+  const [resendApiKey, setResendApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [testingSend, setTestingSend] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     loadSettings();
+    // Load resend key from localStorage (user-side secret)
+    const savedKey = localStorage.getItem('deflectra_resend_key');
+    if (savedKey) setResendApiKey(savedKey);
   }, [user]);
 
   const loadSettings = async () => {
@@ -34,6 +39,14 @@ export default function SettingsPage() {
   const saveSettings = async () => {
     if (!user) return;
     setSaving(true);
+    
+    // Save resend key to localStorage
+    if (resendApiKey) {
+      localStorage.setItem('deflectra_resend_key', resendApiKey);
+    } else {
+      localStorage.removeItem('deflectra_resend_key');
+    }
+
     const { error } = await supabase.from('waf_settings').upsert({
       user_id: user.id,
       paranoia_level: parseInt(paranoiaLevel),
@@ -44,6 +57,42 @@ export default function SettingsPage() {
     if (error) toast.error('Failed to save');
     else toast.success('Settings saved');
     setSaving(false);
+  };
+
+  const sendTestEmail = async () => {
+    if (!resendApiKey) {
+      toast.error('Please enter your Resend API key first');
+      return;
+    }
+    if (!alertEmail) {
+      toast.error('Please enter an alert email address');
+      return;
+    }
+    setTestingSend(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-notification', {
+        body: {
+          resendApiKey,
+          to: alertEmail,
+          subject: '🛡️ Deflectra WAF — Test Notification',
+          html: `
+            <div style="font-family: system-ui, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
+              <h2 style="color: #1a7a6d;">Deflectra WAF Alert</h2>
+              <p>This is a test notification from your Deflectra WAF dashboard.</p>
+              <p>Email notifications are configured and working correctly.</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+              <p style="font-size: 12px; color: #6b7280;">Deflectra — Adaptive Web Shield</p>
+            </div>
+          `,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Test email sent! Check your inbox.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send test email');
+    }
+    setTestingSend(false);
   };
 
   if (!loaded) return <div className="text-xs text-muted-foreground">Loading...</div>;
@@ -90,8 +139,42 @@ export default function SettingsPage() {
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1.5">Alert Email</label>
-          <Input placeholder="security@company.com" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} className="bg-secondary/50 border-border text-sm rounded-xl h-10" />
+          <Input placeholder="security@company.com" type="email" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} className="bg-secondary/50 border-border text-sm rounded-xl h-10" />
         </div>
+      </div>
+
+      <div className="glass-card rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Mail className="w-4 h-4 text-primary" /> Email Notifications (Resend)
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Enter your <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary underline">Resend API key</a> to enable email notifications for threat alerts.
+        </p>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground block mb-1.5">Resend API Key</label>
+          <Input
+            placeholder="re_xxxxxxxxxxxx"
+            type="password"
+            value={resendApiKey}
+            onChange={(e) => setResendApiKey(e.target.value)}
+            className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10"
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={sendTestEmail}
+          disabled={testingSend || !resendApiKey || !alertEmail}
+          className="rounded-lg"
+        >
+          <Send className="w-3.5 h-3.5 mr-1.5" />
+          {testingSend ? 'Sending...' : 'Send Test Email'}
+        </Button>
+        {(!resendApiKey || !alertEmail) && (
+          <p className="text-[10px] text-muted-foreground">
+            {!resendApiKey ? 'Enter your Resend API key' : 'Enter an alert email above'} to send a test.
+          </p>
+        )}
       </div>
 
       <div className="glass-card rounded-xl p-5 space-y-4">
@@ -107,7 +190,7 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <Button onClick={saveSettings} disabled={saving} className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl">
+      <Button onClick={saveSettings} disabled={saving} className="bg-primary text-primary-foreground rounded-xl">
         {saving ? 'Saving...' : 'Save Settings'}
       </Button>
     </div>
