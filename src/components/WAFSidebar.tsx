@@ -30,8 +30,8 @@ export default function WAFSidebar() {
         <div className="flex items-center gap-3">
           <img src={deflectraLogo} alt="Deflectra" className="w-10 h-10 rounded-xl" />
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-wide">DEFLECTRA</h1>
-            <p className="text-[10px] font-mono text-primary tracking-widest">Adaptive Web Shield</p>
+            <h1 className="text-sm font-bold text-white tracking-wide">DEFLECTRA</h1>
+            <p className="text-[10px] font-mono text-sidebar-primary tracking-widest">Adaptive Web Shield</p>
           </div>
         </div>
       </div>
@@ -39,8 +39,8 @@ export default function WAFSidebar() {
       {/* Status */}
       <div className="px-5 py-3 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-accent animate-pulse-glow" />
-          <span className="text-xs font-mono text-accent">WAF ACTIVE</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-glow" />
+          <span className="text-xs font-mono text-emerald-400">WAF ACTIVE</span>
         </div>
       </div>
 
@@ -55,18 +55,15 @@ export default function WAFSidebar() {
               className={cn(
                 "flex items-center gap-3 px-5 py-2.5 text-sm transition-all duration-200 group relative",
                 isActive
-                  ? "text-primary bg-primary/8 border-r-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                  ? "text-white bg-sidebar-primary/15 border-r-2 border-sidebar-primary"
+                  : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent/50"
               )}
             >
               <item.icon className={cn(
                 "w-4 h-4 transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                isActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-white"
               )} />
               <span className="font-medium">{item.label}</span>
-              {isActive && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-l" />
-              )}
             </NavLink>
           );
         })}
@@ -74,19 +71,19 @@ export default function WAFSidebar() {
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
-        <div className="text-[10px] font-mono text-muted-foreground space-y-1">
+        <div className="text-[10px] font-mono space-y-1">
           <div className="flex justify-between">
-            <span>OPERATOR</span>
-            <span className="text-foreground truncate ml-2 max-w-[120px]">{user?.email?.split('@')[0]}</span>
+            <span className="text-sidebar-foreground/60">OPERATOR</span>
+            <span className="text-white truncate ml-2 max-w-[120px]">{user?.email?.split('@')[0]}</span>
           </div>
           <div className="flex justify-between">
-            <span>AI ENGINE</span>
-            <span className="text-accent">GEMINI 3</span>
+            <span className="text-sidebar-foreground/60">AI ENGINE</span>
+            <span className="text-sidebar-primary">GEMINI 3</span>
           </div>
         </div>
         <button
           onClick={signOut}
-          className="flex items-center gap-2 text-xs font-mono text-muted-foreground hover:text-destructive transition-colors w-full"
+          className="flex items-center gap-2 text-xs font-mono text-sidebar-foreground/60 hover:text-red-400 transition-colors w-full"
         >
           <LogOut className="w-3.5 h-3.5" />
           SIGN OUT
