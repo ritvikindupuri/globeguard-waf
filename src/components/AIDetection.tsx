@@ -238,6 +238,9 @@ export default function AIDetection() {
           </div>
         )}
       </div>
+
+      {/* Block Page Preview */}
+      <BlockPagePreview />
     </div>
   );
 }
