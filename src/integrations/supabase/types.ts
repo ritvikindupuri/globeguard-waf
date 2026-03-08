@@ -14,7 +14,204 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      protected_sites: {
+        Row: {
+          created_at: string
+          id: string
+          last_check: string | null
+          name: string
+          ssl_valid: boolean
+          status: string
+          threats_blocked: number
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_check?: string | null
+          name: string
+          ssl_valid?: boolean
+          status?: string
+          threats_blocked?: number
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_check?: string | null
+          name?: string
+          ssl_valid?: boolean
+          status?: string
+          threats_blocked?: number
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      threat_logs: {
+        Row: {
+          action_taken: string
+          created_at: string
+          details: Json | null
+          id: string
+          request_method: string | null
+          request_path: string | null
+          rule_id: string | null
+          severity: string
+          site_id: string | null
+          source_country: string | null
+          source_ip: string
+          source_lat: number | null
+          source_lng: number | null
+          threat_type: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          request_method?: string | null
+          request_path?: string | null
+          rule_id?: string | null
+          severity?: string
+          site_id?: string | null
+          source_country?: string | null
+          source_ip: string
+          source_lat?: number | null
+          source_lng?: number | null
+          threat_type: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action_taken?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          request_method?: string | null
+          request_path?: string | null
+          rule_id?: string | null
+          severity?: string
+          site_id?: string | null
+          source_country?: string | null
+          source_ip?: string
+          source_lat?: number | null
+          source_lng?: number | null
+          threat_type?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "threat_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "waf_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "threat_logs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "protected_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waf_rules: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          pattern: string
+          priority: number
+          rule_type: string
+          severity: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          pattern: string
+          priority?: number
+          rule_type?: string
+          severity?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          pattern?: string
+          priority?: number
+          rule_type?: string
+          severity?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      waf_settings: {
+        Row: {
+          ai_detection_enabled: boolean
+          alert_email: string | null
+          api_protection_enabled: boolean
+          created_at: string
+          default_action: string
+          id: string
+          paranoia_level: number
+          rate_limiting_enabled: boolean
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          ai_detection_enabled?: boolean
+          alert_email?: string | null
+          api_protection_enabled?: boolean
+          created_at?: string
+          default_action?: string
+          id?: string
+          paranoia_level?: number
+          rate_limiting_enabled?: boolean
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          ai_detection_enabled?: boolean
+          alert_email?: string | null
+          api_protection_enabled?: boolean
+          created_at?: string
+          default_action?: string
+          id?: string
+          paranoia_level?: number
+          rate_limiting_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

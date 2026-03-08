@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Shield, Globe, FileCode, AlertTriangle, Activity, 
-  Server, Settings, Zap, Brain, Lock
+  Server, Settings, Zap, Brain, Lock, LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { to: '/', icon: Activity, label: 'Dashboard' },
@@ -19,6 +20,7 @@ const navItems = [
 
 export default function WAFSidebar() {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   return (
     <aside className="w-64 h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0 z-40">
@@ -69,17 +71,24 @@ export default function WAFSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="text-[10px] font-mono text-muted-foreground space-y-1">
           <div className="flex justify-between">
-            <span>VERSION</span>
-            <span className="text-foreground">2.4.1</span>
+            <span>OPERATOR</span>
+            <span className="text-foreground truncate ml-2 max-w-[120px]">{user?.email?.split('@')[0]}</span>
           </div>
           <div className="flex justify-between">
             <span>ENGINE</span>
             <span className="text-accent">ACTIVE</span>
           </div>
         </div>
+        <button
+          onClick={signOut}
+          className="flex items-center gap-2 text-xs font-mono text-muted-foreground hover:text-destructive transition-colors w-full"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          SIGN OUT
+        </button>
       </div>
     </aside>
   );
