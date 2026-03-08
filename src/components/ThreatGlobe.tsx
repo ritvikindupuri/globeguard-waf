@@ -1,7 +1,9 @@
-import { useRef, useMemo, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Sphere, Html } from '@react-three/drei';
+import { useRef, useMemo, useState, useEffect } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ThreatPoint {
   lat: number;
@@ -28,51 +30,144 @@ function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector
   );
 }
 
-function GlobeWireframe() {
-  const ref = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.05;
-  });
+// Real earth globe with texture
+function EarthGlobe() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const cloudsRef = useRef<THREE.Mesh>(null);
 
-  const gridLines = useMemo(() => {
-    const lines: THREE.Vector3[][] = [];
-    // Latitude lines
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const points: THREE.Vector3[] = [];
-      for (let lng = 0; lng <= 360; lng += 5) {
-        points.push(latLngToVector3(lat, lng, 2.01));
-      }
-      lines.push(points);
+  // Use a procedural earth-like globe with realistic coloring
+  const earthTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark ocean background
+    ctx.fillStyle = '#0a1628';
+    ctx.fillRect(0, 0, 2048, 1024);
+
+    // Draw simplified continent shapes with glow effect
+    const drawContinent = (points: [number, number][], color: string) => {
+      ctx.beginPath();
+      points.forEach(([x, y], i) => {
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#1a4a6a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    };
+
+    const landColor = '#0d2847';
+    const borderColor = '#1a5a8a';
+
+    // North America
+    drawContinent([
+      [200, 180], [280, 150], [350, 160], [380, 200], [360, 280],
+      [340, 320], [300, 360], [260, 380], [220, 360], [180, 300],
+      [170, 250], [180, 200]
+    ], landColor);
+
+    // South America
+    drawContinent([
+      [340, 420], [380, 400], [420, 440], [430, 520], [420, 600],
+      [380, 680], [340, 700], [310, 660], [300, 580], [310, 500],
+      [320, 440]
+    ], landColor);
+
+    // Europe
+    drawContinent([
+      [980, 180], [1020, 160], [1080, 170], [1100, 200], [1080, 240],
+      [1040, 260], [1000, 280], [960, 260], [950, 220]
+    ], landColor);
+
+    // Africa
+    drawContinent([
+      [980, 340], [1040, 300], [1100, 320], [1140, 380], [1140, 480],
+      [1100, 580], [1060, 640], [1020, 640], [980, 580], [960, 480],
+      [960, 400]
+    ], landColor);
+
+    // Asia
+    drawContinent([
+      [1100, 140], [1200, 120], [1400, 140], [1500, 180], [1560, 240],
+      [1540, 300], [1480, 340], [1400, 360], [1300, 340], [1200, 300],
+      [1140, 260], [1100, 200]
+    ], landColor);
+
+    // Australia
+    drawContinent([
+      [1500, 520], [1580, 500], [1640, 520], [1660, 580], [1620, 640],
+      [1560, 660], [1500, 620], [1480, 560]
+    ], landColor);
+
+    // Add grid lines for lat/lng
+    ctx.strokeStyle = '#0f2a4a';
+    ctx.lineWidth = 0.5;
+    for (let lat = 0; lat < 1024; lat += 1024 / 18) {
+      ctx.beginPath();
+      ctx.moveTo(0, lat);
+      ctx.lineTo(2048, lat);
+      ctx.stroke();
     }
-    // Longitude lines
-    for (let lng = 0; lng < 360; lng += 30) {
-      const points: THREE.Vector3[] = [];
-      for (let lat = -90; lat <= 90; lat += 5) {
-        points.push(latLngToVector3(lat, lng, 2.01));
-      }
-      lines.push(points);
+    for (let lng = 0; lng < 2048; lng += 2048 / 36) {
+      ctx.beginPath();
+      ctx.moveTo(lng, 0);
+      ctx.lineTo(lng, 1024);
+      ctx.stroke();
     }
-    return lines;
+
+    // Add coastal glow
+    ctx.shadowColor = borderColor;
+    ctx.shadowBlur = 8;
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    return texture;
   }, []);
 
+  useFrame((_, delta) => {
+    if (meshRef.current) meshRef.current.rotation.y += delta * 0.03;
+    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.04;
+  });
+
   return (
-    <group ref={ref}>
-      <Sphere args={[2, 48, 48]}>
-        <meshBasicMaterial color="#0a1628" transparent opacity={0.85} />
-      </Sphere>
-      {gridLines.map((points, i) => (
-        <line key={i}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={points.length}
-              array={new Float32Array(points.flatMap(p => [p.x, p.y, p.z]))}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#1a3a5c" transparent opacity={0.4} />
-        </line>
-      ))}
+    <group>
+      {/* Earth sphere */}
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[2, 64, 64]} />
+        <meshStandardMaterial
+          map={earthTexture}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Atmosphere glow */}
+      <mesh ref={cloudsRef}>
+        <sphereGeometry args={[2.03, 64, 64]} />
+        <meshBasicMaterial
+          color="#0088cc"
+          transparent
+          opacity={0.06}
+          side={THREE.FrontSide}
+        />
+      </mesh>
+
+      {/* Outer atmosphere ring */}
+      <mesh>
+        <sphereGeometry args={[2.15, 64, 64]} />
+        <meshBasicMaterial
+          color="#00aaff"
+          transparent
+          opacity={0.02}
+          side={THREE.BackSide}
+        />
+      </mesh>
     </group>
   );
 }
@@ -80,7 +175,7 @@ function GlobeWireframe() {
 function ThreatMarkers({ threats }: { threats: ThreatPoint[] }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.05;
+    if (ref.current) ref.current.rotation.y += delta * 0.03;
   });
 
   return (
@@ -108,11 +203,10 @@ function ThreatMarkers({ threats }: { threats: ThreatPoint[] }) {
 function ConnectionArcs({ threats }: { threats: ThreatPoint[] }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.05;
+    if (ref.current) ref.current.rotation.y += delta * 0.03;
   });
 
   const arcs = useMemo(() => {
-    // Draw arcs from threat to a central "server" location (e.g., US East)
     const target = latLngToVector3(39, -77, 2.05);
     return threats.slice(0, 15).map((t) => {
       const start = latLngToVector3(t.lat, t.lng, 2.05);
@@ -145,36 +239,44 @@ function ConnectionArcs({ threats }: { threats: ThreatPoint[] }) {
   );
 }
 
-const SAMPLE_THREATS: ThreatPoint[] = [
-  { lat: 55.75, lng: 37.61, intensity: 0.9, type: 'critical', label: 'Moscow' },
-  { lat: 39.9, lng: 116.4, intensity: 0.8, type: 'high', label: 'Beijing' },
-  { lat: 35.68, lng: 139.69, intensity: 0.3, type: 'low', label: 'Tokyo' },
-  { lat: -23.55, lng: -46.63, intensity: 0.6, type: 'medium', label: 'São Paulo' },
-  { lat: 51.5, lng: -0.12, intensity: 0.4, type: 'low', label: 'London' },
-  { lat: 28.61, lng: 77.2, intensity: 0.7, type: 'high', label: 'New Delhi' },
-  { lat: 1.35, lng: 103.82, intensity: 0.5, type: 'medium', label: 'Singapore' },
-  { lat: 30.04, lng: 31.24, intensity: 0.6, type: 'high', label: 'Cairo' },
-  { lat: -33.87, lng: 151.21, intensity: 0.2, type: 'low', label: 'Sydney' },
-  { lat: 52.52, lng: 13.4, intensity: 0.5, type: 'medium', label: 'Berlin' },
-  { lat: 37.57, lng: 126.98, intensity: 0.7, type: 'high', label: 'Seoul' },
-  { lat: 19.43, lng: -99.13, intensity: 0.4, type: 'medium', label: 'Mexico City' },
-  { lat: -6.2, lng: 106.85, intensity: 0.8, type: 'critical', label: 'Jakarta' },
-  { lat: 41.01, lng: 28.98, intensity: 0.5, type: 'medium', label: 'Istanbul' },
-  { lat: 48.86, lng: 2.35, intensity: 0.3, type: 'low', label: 'Paris' },
-  { lat: 35.69, lng: 51.39, intensity: 0.9, type: 'critical', label: 'Tehran' },
-  { lat: 14.6, lng: 120.98, intensity: 0.6, type: 'high', label: 'Manila' },
-  { lat: 6.52, lng: 3.38, intensity: 0.7, type: 'high', label: 'Lagos' },
-];
-
 export default function ThreatGlobe({ className }: { className?: string }) {
+  const { user } = useAuth();
+  const [threats, setThreats] = useState<ThreatPoint[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadThreats();
+  }, [user]);
+
+  const loadThreats = async () => {
+    const { data } = await supabase
+      .from('threat_logs')
+      .select('source_lat, source_lng, severity, source_country')
+      .not('source_lat', 'is', null)
+      .not('source_lng', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (data && data.length > 0) {
+      setThreats(data.map(t => ({
+        lat: t.source_lat!,
+        lng: t.source_lng!,
+        intensity: t.severity === 'critical' ? 0.9 : t.severity === 'high' ? 0.7 : t.severity === 'medium' ? 0.5 : 0.3,
+        type: t.severity as ThreatPoint['type'],
+        label: t.source_country || undefined,
+      })));
+    }
+  };
+
   return (
     <div className={className}>
       <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }}>
-        <ambientLight intensity={0.3} />
-        <pointLight position={[10, 10, 10]} intensity={0.5} />
-        <GlobeWireframe />
-        <ThreatMarkers threats={SAMPLE_THREATS} />
-        <ConnectionArcs threats={SAMPLE_THREATS} />
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[5, 3, 5]} intensity={0.8} />
+        <pointLight position={[-5, -3, -5]} intensity={0.3} color="#0088ff" />
+        <EarthGlobe />
+        <ThreatMarkers threats={threats} />
+        <ConnectionArcs threats={threats} />
         <OrbitControls
           enableZoom={true}
           enablePan={false}
@@ -183,6 +285,13 @@ export default function ThreatGlobe({ className }: { className?: string }) {
           autoRotate={false}
         />
       </Canvas>
+      {threats.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <p className="text-xs font-mono text-muted-foreground bg-background/80 px-3 py-1 rounded">
+            No threats logged yet — analyze a request to see data
+          </p>
+        </div>
+      )}
     </div>
   );
 }
