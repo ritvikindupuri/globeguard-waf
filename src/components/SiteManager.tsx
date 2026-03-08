@@ -201,7 +201,7 @@ export default function SiteManager() {
               <p className="text-xs text-muted-foreground">Detected app type: <span className="text-primary font-medium">{aiSetupResult.app_type}</span></p>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-secondary/30 rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-foreground">{aiSetupResult.rules_created}</p>
               <p className="text-[10px] font-mono text-muted-foreground">WAF RULES</p>
@@ -213,10 +213,6 @@ export default function SiteManager() {
             <div className="bg-secondary/30 rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-foreground">{aiSetupResult.endpoints_monitored}</p>
               <p className="text-[10px] font-mono text-muted-foreground">API ENDPOINTS</p>
-            </div>
-            <div className="bg-secondary/30 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{aiSetupResult.threats_simulated}</p>
-              <p className="text-[10px] font-mono text-muted-foreground">THREATS SIM.</p>
             </div>
           </div>
         </div>
