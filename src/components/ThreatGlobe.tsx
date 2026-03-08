@@ -1,5 +1,5 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,99 +30,146 @@ function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector
   );
 }
 
-// Real earth globe with texture
+// Mapbox-style globe with light ocean and colored continents
 function EarthGlobe() {
   const meshRef = useRef<THREE.Mesh>(null);
-  const cloudsRef = useRef<THREE.Mesh>(null);
 
-  // Use a procedural earth-like globe with realistic coloring
   const earthTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 2048;
     canvas.height = 1024;
     const ctx = canvas.getContext('2d')!;
 
-    // Dark ocean background
-    ctx.fillStyle = '#0a1628';
+    // Light ocean — Mapbox style soft blue
+    ctx.fillStyle = '#b8d4e3';
     ctx.fillRect(0, 0, 2048, 1024);
 
-    // Draw simplified continent shapes with glow effect
-    const drawContinent = (points: [number, number][], color: string) => {
+    // Draw continent with fill + subtle border
+    const drawContinent = (points: [number, number][], fill: string, border: string) => {
       ctx.beginPath();
       points.forEach(([x, y], i) => {
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
       ctx.closePath();
-      ctx.fillStyle = color;
+      ctx.fillStyle = fill;
       ctx.fill();
-      ctx.strokeStyle = '#1a4a6a';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 2;
       ctx.stroke();
     };
 
-    const landColor = '#0d2847';
-    const borderColor = '#1a5a8a';
+    const land = '#e8dcc8';
+    const border = '#c4b89c';
 
     // North America
     drawContinent([
-      [200, 180], [280, 150], [350, 160], [380, 200], [360, 280],
-      [340, 320], [300, 360], [260, 380], [220, 360], [180, 300],
-      [170, 250], [180, 200]
-    ], landColor);
+      [180, 150], [220, 120], [300, 110], [370, 130], [400, 170],
+      [390, 210], [380, 260], [360, 300], [340, 340], [300, 370],
+      [260, 380], [220, 360], [190, 320], [170, 270], [165, 220],
+      [170, 180]
+    ], land, border);
+
+    // Central America
+    drawContinent([
+      [300, 370], [320, 360], [340, 380], [350, 400], [340, 420],
+      [320, 430], [300, 420], [290, 400]
+    ], land, border);
 
     // South America
     drawContinent([
-      [340, 420], [380, 400], [420, 440], [430, 520], [420, 600],
-      [380, 680], [340, 700], [310, 660], [300, 580], [310, 500],
-      [320, 440]
-    ], landColor);
+      [340, 430], [380, 410], [420, 430], [440, 480], [450, 540],
+      [440, 600], [420, 660], [390, 710], [350, 720], [320, 690],
+      [310, 630], [300, 560], [310, 500], [320, 450]
+    ], land, border);
 
     // Europe
     drawContinent([
-      [980, 180], [1020, 160], [1080, 170], [1100, 200], [1080, 240],
-      [1040, 260], [1000, 280], [960, 260], [950, 220]
-    ], landColor);
+      [960, 150], [990, 130], [1040, 125], [1080, 140], [1100, 170],
+      [1090, 210], [1070, 240], [1040, 260], [1010, 270], [980, 260],
+      [960, 240], [950, 200], [950, 170]
+    ], land, border);
+
+    // UK/Ireland
+    drawContinent([
+      [930, 160], [950, 150], [955, 180], [945, 200], [930, 195], [925, 175]
+    ], land, border);
 
     // Africa
     drawContinent([
-      [980, 340], [1040, 300], [1100, 320], [1140, 380], [1140, 480],
-      [1100, 580], [1060, 640], [1020, 640], [980, 580], [960, 480],
-      [960, 400]
-    ], landColor);
+      [970, 310], [1010, 290], [1060, 280], [1110, 300], [1140, 340],
+      [1150, 400], [1150, 470], [1140, 540], [1110, 600], [1070, 650],
+      [1030, 660], [1000, 640], [980, 580], [960, 500], [955, 420],
+      [960, 360]
+    ], land, border);
 
-    // Asia
+    // Middle East
     drawContinent([
-      [1100, 140], [1200, 120], [1400, 140], [1500, 180], [1560, 240],
-      [1540, 300], [1480, 340], [1400, 360], [1300, 340], [1200, 300],
-      [1140, 260], [1100, 200]
-    ], landColor);
+      [1110, 260], [1160, 250], [1200, 270], [1210, 310], [1190, 340],
+      [1150, 340], [1120, 310], [1110, 280]
+    ], land, border);
+
+    // Asia (large)
+    drawContinent([
+      [1100, 130], [1160, 110], [1250, 95], [1350, 90], [1440, 100],
+      [1510, 130], [1560, 170], [1580, 220], [1560, 270], [1520, 310],
+      [1470, 340], [1410, 360], [1350, 350], [1280, 330], [1220, 300],
+      [1170, 260], [1130, 210], [1100, 170]
+    ], land, border);
+
+    // India
+    drawContinent([
+      [1280, 340], [1320, 330], [1350, 360], [1340, 420], [1310, 460],
+      [1280, 440], [1270, 390], [1270, 360]
+    ], land, border);
+
+    // Southeast Asia
+    drawContinent([
+      [1420, 360], [1460, 350], [1480, 380], [1470, 420], [1440, 440],
+      [1410, 420], [1400, 390]
+    ], land, border);
+
+    // Japan
+    drawContinent([
+      [1560, 200], [1575, 190], [1580, 220], [1570, 250], [1555, 240], [1550, 215]
+    ], land, border);
 
     // Australia
     drawContinent([
-      [1500, 520], [1580, 500], [1640, 520], [1660, 580], [1620, 640],
-      [1560, 660], [1500, 620], [1480, 560]
-    ], landColor);
+      [1480, 530], [1540, 500], [1610, 510], [1660, 540], [1670, 600],
+      [1640, 650], [1580, 670], [1520, 650], [1480, 610], [1470, 570]
+    ], land, border);
 
-    // Add grid lines for lat/lng
-    ctx.strokeStyle = '#0f2a4a';
+    // New Zealand
+    drawContinent([
+      [1700, 640], [1715, 630], [1720, 660], [1710, 690], [1695, 680]
+    ], land, border);
+
+    // Greenland
+    drawContinent([
+      [380, 60], [420, 45], [460, 50], [480, 75], [470, 100],
+      [440, 110], [400, 105], [380, 85]
+    ], land, border);
+
+    // Antarctica hint
+    ctx.fillStyle = '#f0ebe3';
+    ctx.fillRect(0, 940, 2048, 84);
+
+    // Subtle lat/lng grid
+    ctx.strokeStyle = 'rgba(150,170,190,0.15)';
     ctx.lineWidth = 0.5;
-    for (let lat = 0; lat < 1024; lat += 1024 / 18) {
+    for (let lat = 0; lat < 1024; lat += 1024 / 12) {
       ctx.beginPath();
       ctx.moveTo(0, lat);
       ctx.lineTo(2048, lat);
       ctx.stroke();
     }
-    for (let lng = 0; lng < 2048; lng += 2048 / 36) {
+    for (let lng = 0; lng < 2048; lng += 2048 / 24) {
       ctx.beginPath();
       ctx.moveTo(lng, 0);
       ctx.lineTo(lng, 1024);
       ctx.stroke();
     }
-
-    // Add coastal glow
-    ctx.shadowColor = borderColor;
-    ctx.shadowBlur = 8;
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
@@ -131,40 +178,26 @@ function EarthGlobe() {
   }, []);
 
   useFrame((_, delta) => {
-    if (meshRef.current) meshRef.current.rotation.y += delta * 0.03;
-    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.04;
+    if (meshRef.current) meshRef.current.rotation.y += delta * 0.05;
   });
 
   return (
     <group>
-      {/* Earth sphere */}
       <mesh ref={meshRef}>
         <sphereGeometry args={[2, 64, 64]} />
         <meshStandardMaterial
           map={earthTexture}
-          roughness={0.8}
-          metalness={0.1}
+          roughness={0.6}
+          metalness={0.05}
         />
       </mesh>
-
       {/* Atmosphere glow */}
-      <mesh ref={cloudsRef}>
-        <sphereGeometry args={[2.03, 64, 64]} />
-        <meshBasicMaterial
-          color="#0088cc"
-          transparent
-          opacity={0.06}
-          side={THREE.FrontSide}
-        />
-      </mesh>
-
-      {/* Outer atmosphere ring */}
       <mesh>
-        <sphereGeometry args={[2.15, 64, 64]} />
+        <sphereGeometry args={[2.08, 64, 64]} />
         <meshBasicMaterial
-          color="#00aaff"
+          color="#a0d8ef"
           transparent
-          opacity={0.02}
+          opacity={0.08}
           side={THREE.BackSide}
         />
       </mesh>
@@ -175,7 +208,7 @@ function EarthGlobe() {
 function ThreatMarkers({ threats }: { threats: ThreatPoint[] }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.03;
+    if (ref.current) ref.current.rotation.y += delta * 0.05;
   });
 
   return (
@@ -191,7 +224,7 @@ function ThreatMarkers({ threats }: { threats: ThreatPoint[] }) {
             </mesh>
             <mesh>
               <sphereGeometry args={[0.06 + threat.intensity * 0.04, 8, 8]} />
-              <meshBasicMaterial color={color} transparent opacity={0.2} />
+              <meshBasicMaterial color={color} transparent opacity={0.25} />
             </mesh>
           </group>
         );
@@ -203,7 +236,7 @@ function ThreatMarkers({ threats }: { threats: ThreatPoint[] }) {
 function ConnectionArcs({ threats }: { threats: ThreatPoint[] }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.03;
+    if (ref.current) ref.current.rotation.y += delta * 0.05;
   });
 
   const arcs = useMemo(() => {
@@ -232,7 +265,7 @@ function ConnectionArcs({ threats }: { threats: ThreatPoint[] }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color={arc.color} transparent opacity={0.4} />
+          <lineBasicMaterial color={arc.color} transparent opacity={0.5} />
         </line>
       ))}
     </group>
@@ -270,10 +303,11 @@ export default function ThreatGlobe({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 3, 5]} intensity={0.8} />
-        <pointLight position={[-5, -3, -5]} intensity={0.3} color="#0088ff" />
+      <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }} style={{ background: 'linear-gradient(180deg, #e8f4f8 0%, #f0f7fa 50%, #f8fbfc 100%)' }}>
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[5, 3, 5]} intensity={1.0} />
+        <directionalLight position={[-3, -1, -3]} intensity={0.3} />
+        <pointLight position={[0, 5, 0]} intensity={0.4} color="#ffffff" />
         <EarthGlobe />
         <ThreatMarkers threats={threats} />
         <ConnectionArcs threats={threats} />
@@ -288,7 +322,7 @@ export default function ThreatGlobe({ className }: { className?: string }) {
       {threats.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-xs font-mono text-muted-foreground bg-background/80 px-3 py-1 rounded">
-            No threats logged yet — analyze a request to see data
+            No threats logged yet — add a protected site to generate data
           </p>
         </div>
       )}
