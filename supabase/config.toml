@@ -2,3 +2,6 @@ project_id = "mgveeoqkhthibpmmljxz"
 
 [functions.analyze-threat]
 verify_jwt = false
+
+[functions.waf-proxy]
+verify_jwt = false

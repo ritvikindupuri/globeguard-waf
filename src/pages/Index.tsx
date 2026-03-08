@@ -43,31 +43,38 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-xs font-mono text-muted-foreground mt-1">DEFLECTRA WAF • REAL-TIME THREAT MONITORING</p>
+        <p className="text-sm text-muted-foreground mt-1">Real-time overview of your web application firewall</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        <StatCard icon={Shield} title="Threats Blocked" value={stats.threatsBlocked.toLocaleString()} change="From database" changeType="neutral" variant="primary" />
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard icon={Shield} title="Threats Blocked" value={stats.threatsBlocked.toLocaleString()} change="All time" changeType="neutral" variant="primary" />
         <StatCard icon={AlertTriangle} title="Active Threats" value={stats.activeThreats.toString()} change={`${stats.criticalThreats} critical`} changeType={stats.criticalThreats > 0 ? 'negative' : 'positive'} variant="destructive" />
-        <StatCard icon={Globe} title="Countries" value={stats.countries.toString()} change="Attack sources" changeType="neutral" variant="default" />
-        <StatCard icon={Zap} title="Avg Response" value="—" change="Proxy required" changeType="neutral" variant="accent" />
-        <StatCard icon={Server} title="Protected Sites" value={stats.protectedSites.toString()} change="From database" changeType="neutral" variant="primary" />
-        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="gemini-3-flash" changeType="positive" variant="accent" />
+        <StatCard icon={Globe} title="Attack Sources" value={stats.countries.toString()} change="Countries" changeType="neutral" variant="default" />
+        <StatCard icon={Zap} title="Avg Response" value="—" change="Proxy mode" changeType="neutral" variant="accent" />
+        <StatCard icon={Server} title="Protected Sites" value={stats.protectedSites.toString()} change="Active" changeType="neutral" variant="primary" />
+        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="v3 Flash" changeType="positive" variant="accent" />
       </div>
 
+      {/* Globe + Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="glass-card rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Live Threat Map</h3>
-            <span className="text-[10px] font-mono text-accent animate-pulse-glow">● LIVE</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-glow" />
+              <span className="text-[10px] font-mono text-accent">LIVE</span>
+            </div>
           </div>
           <ThreatGlobe className="h-[320px]" />
         </div>
         <TrafficChart />
       </div>
 
+      {/* Threats */}
       <ThreatTable />
     </div>
   );
