@@ -165,7 +165,7 @@ If it contains any suspicious patterns, classify appropriately.`
       analysis,
       logged: analysis.is_threat,
       model: "google/gemini-3-flash-preview",
-      engine: "CERBERUS AI v3.0",
+      engine: "DEFLECTRA AI v3.0",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
