@@ -95,6 +95,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_hits: {
+        Row: {
+          client_ip: string
+          created_at: string
+          id: string
+          path: string
+          user_id: string
+        }
+        Insert: {
+          client_ip: string
+          created_at?: string
+          id?: string
+          path: string
+          user_id: string
+        }
+        Update: {
+          client_ip?: string
+          created_at?: string
+          id?: string
+          path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rate_limit_rules: {
         Row: {
           action: string

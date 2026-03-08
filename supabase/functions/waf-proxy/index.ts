@@ -7,198 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
-
-  try {
-    // Get the site ID from header or query param
-    const url = new URL(req.url);
-    const siteId = req.headers.get("x-deflectra-site-id") || url.searchParams.get("site_id");
-    const targetPath = url.searchParams.get("path") || "/";
-
-    if (!siteId) {
-      return new Response(JSON.stringify({
-        error: "Missing site_id. Set x-deflectra-site-id header or ?site_id= query param.",
-        usage: "Point your traffic to this endpoint with your site_id to enable WAF protection."
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Look up the protected site
-    const { data: site, error: siteError } = await supabase
-      .from("protected_sites")
-      .select("*")
-      .eq("id", siteId)
-      .single();
-
-    if (siteError || !site) {
-      return new Response(JSON.stringify({ error: "Site not found or not protected by Deflectra." }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
-      || req.headers.get("cf-connecting-ip") 
-      || "unknown";
-    const userAgent = req.headers.get("user-agent") || "unknown";
-
-    let geoData: { lat: number | null; lng: number | null; country: string | null } = {
-      lat: null, lng: null, country: null,
-    };
-    const requestMethod = req.method;
-    const requestBody = req.method !== "GET" && req.method !== "HEAD" 
-      ? await req.text().catch(() => "") 
-      : "";
-
-    // Load WAF rules for this user
-    const { data: rules } = await supabase
-      .from("waf_rules")
-      .select("*")
-      .eq("user_id", site.user_id)
-      .eq("enabled", true)
-      .order("priority", { ascending: true });
-
-    // Check rules against the request (only path + body, NOT user-agent to avoid false positives)
-    let blocked = false;
-    let matchedRule: any = null;
-    const checkString = `${targetPath} ${requestBody}`;
-
-    for (const rule of (rules || [])) {
-      try {
-        const regex = new RegExp(rule.pattern, "i");
-        if (regex.test(checkString)) {
-          matchedRule = rule;
-          if (rule.rule_type === "block") {
-            blocked = true;
-          }
-          break;
-        }
-      } catch {
-        // Invalid regex, skip
-      }
-    }
-
-    // If no rule matched, use AI analysis for suspicious patterns
-    let aiAnalysis: any = null;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!blocked && !matchedRule && LOVABLE_API_KEY) {
-      // Quick AI check for suspicious requests
-      try {
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              {
-                role: "system",
-                content: `You are DEFLECTRA WAF. Classify this HTTP request as safe or threat. Also estimate the geographic origin of the IP address (approximate latitude, longitude, and country). Respond with tool call only.`
-              },
-              {
-                role: "user",
-                content: `Method: ${requestMethod}\nPath: ${targetPath}\nBody: ${requestBody.slice(0, 500)}\nUser-Agent: ${userAgent}\nIP: ${clientIp}`
-              }
-            ],
-            tools: [{
-              type: "function",
-              function: {
-                name: "classify",
-                description: "Classify request and estimate IP geolocation",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    is_threat: { type: "boolean" },
-                    threat_type: { type: "string" },
-                    severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
-                    action: { type: "string", enum: ["blocked", "challenged", "logged", "allowed"] },
-                    confidence: { type: "number" },
-                    reason: { type: "string" },
-                    source_lat: { type: "number", description: "Estimated latitude of the IP address origin" },
-                    source_lng: { type: "number", description: "Estimated longitude of the IP address origin" },
-                    source_country: { type: "string", description: "Estimated country name of the IP address origin" }
-                  },
-                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason", "source_lat", "source_lng", "source_country"],
-                  additionalProperties: false
-                }
-              }
-            }],
-            tool_choice: { type: "function", function: { name: "classify" } },
-          }),
-        });
-
-        if (aiResponse.ok) {
-          const aiResult = await aiResponse.json();
-          const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
-          if (toolCall) {
-            aiAnalysis = JSON.parse(toolCall.function.arguments);
-            if (aiAnalysis.is_threat && aiAnalysis.action === "blocked") {
-              blocked = true;
-            }
-            // Use AI-estimated geo data
-            if (aiAnalysis.source_lat && aiAnalysis.source_lng) {
-              geoData = {
-                lat: aiAnalysis.source_lat,
-                lng: aiAnalysis.source_lng,
-                country: aiAnalysis.source_country || null,
-              };
-            }
-          }
-        }
-      } catch (e) {
-        console.error("AI analysis error:", e);
-        // Continue without AI - fail open
-      }
-    }
-
-    // Log to threat_logs if a threat was detected
-    const isThreat = blocked || matchedRule || (aiAnalysis?.is_threat);
-    if (isThreat) {
-      await supabase.from("threat_logs").insert({
-        user_id: site.user_id,
-        site_id: site.id,
-        source_ip: clientIp,
-        source_lat: geoData.lat,
-        source_lng: geoData.lng,
-        source_country: geoData.country,
-        threat_type: matchedRule?.category || aiAnalysis?.threat_type || "unknown",
-        severity: matchedRule?.severity || aiAnalysis?.severity || "medium",
-        action_taken: blocked ? "blocked" : (aiAnalysis?.action || "logged"),
-        request_path: targetPath,
-        request_method: requestMethod,
-        user_agent: userAgent,
-        rule_id: matchedRule?.id || null,
-        details: {
-          matched_rule: matchedRule?.name || null,
-          ai_analysis: aiAnalysis || null,
-          blocked,
-        },
-      });
-
-      // Update threats_blocked count
-      await supabase
-        .from("protected_sites")
-        .update({ threats_blocked: site.threats_blocked + 1 })
-        .eq("id", site.id);
-    }
-
-    // If blocked, return branded block page
-    if (blocked) {
-      const blockReason = matchedRule?.name || aiAnalysis?.reason || "Threat detected";
-      const blockSeverity = matchedRule?.severity || aiAnalysis?.severity || "high";
-      const blockRule = matchedRule?.name || "AI Detection";
-
-      const blockPageHtml = `<!DOCTYPE html>
+function buildBlockPage(reason: string, severity: string, rule: string, ip: string, path: string, method: string) {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -248,15 +58,15 @@ serve(async (req) => {
         </defs>
       </svg>
     </div>
-    <span class="badge ${blockSeverity}">${blockSeverity.toUpperCase()} SEVERITY</span>
+    <span class="badge ${severity}">${severity.toUpperCase()} SEVERITY</span>
     <h1>Request Blocked</h1>
     <p class="subtitle">Deflectra WAF has detected a potential threat and blocked this request to protect the application.</p>
     <div class="details">
-      <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">${blockReason}</span></div>
-      <div class="detail-row"><span class="detail-label">Rule</span><span class="detail-value">${blockRule}</span></div>
-      <div class="detail-row"><span class="detail-label">Your IP</span><span class="detail-value">${clientIp}</span></div>
-      <div class="detail-row"><span class="detail-label">Path</span><span class="detail-value">${targetPath}</span></div>
-      <div class="detail-row"><span class="detail-label">Method</span><span class="detail-value">${requestMethod}</span></div>
+      <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">${reason}</span></div>
+      <div class="detail-row"><span class="detail-label">Rule</span><span class="detail-value">${rule}</span></div>
+      <div class="detail-row"><span class="detail-label">Your IP</span><span class="detail-value">${ip}</span></div>
+      <div class="detail-row"><span class="detail-label">Path</span><span class="detail-value">${path}</span></div>
+      <div class="detail-row"><span class="detail-label">Method</span><span class="detail-value">${method}</span></div>
     </div>
     <div class="footer">
       <svg viewBox="0 0 100 100" fill="none"><path d="M50 5L10 25V50C10 75 25 90 50 95C75 90 90 75 90 50V25L50 5Z" fill="#06b6d4"/></svg>
@@ -265,19 +75,357 @@ serve(async (req) => {
   </div>
 </body>
 </html>`;
+}
 
-      return new Response(blockPageHtml, {
-        status: 403,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "text/html; charset=utf-8",
-          "X-Deflectra-Action": "blocked",
-          "X-Deflectra-Rule": blockRule,
-        },
+function returnBlocked(reason: string, severity: string, rule: string, ip: string, path: string, method: string) {
+  return new Response(buildBlockPage(reason, severity, rule, ip, path, method), {
+    status: 403,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/html; charset=utf-8",
+      "X-Deflectra-Action": "blocked",
+      "X-Deflectra-Rule": rule,
+    },
+  });
+}
+
+// Simple JWT decoder (no verification — just parse claims)
+function decodeJwt(token: string): any | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  try {
+    const url = new URL(req.url);
+    const siteId = req.headers.get("x-deflectra-site-id") || url.searchParams.get("site_id");
+    const targetPath = url.searchParams.get("path") || "/";
+
+    if (!siteId) {
+      return new Response(JSON.stringify({
+        error: "Missing site_id. Set x-deflectra-site-id header or ?site_id= query param.",
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Look up the protected site
+    const { data: site, error: siteError } = await supabase
+      .from("protected_sites").select("*").eq("id", siteId).single();
+
+    if (siteError || !site) {
+      return new Response(JSON.stringify({ error: "Site not found or not protected by Deflectra." }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Forward the request to the origin
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("cf-connecting-ip") || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+    const requestMethod = req.method;
+    const requestBody = req.method !== "GET" && req.method !== "HEAD"
+      ? await req.text().catch(() => "") : "";
+    const authHeader = req.headers.get("authorization") || "";
+
+    let geoData = { lat: null as number | null, lng: null as number | null, country: null as string | null };
+    let blocked = false;
+    let blockReason = "";
+    let blockSeverity = "high";
+    let blockRule = "";
+    let matchedRule: any = null;
+
+    // ──────────────────────────────────────────────
+    // 1. API SHIELD: Check endpoint-specific protections
+    // ──────────────────────────────────────────────
+    const { data: apiEndpoints } = await supabase
+      .from("api_endpoints")
+      .select("*")
+      .eq("user_id", site.user_id);
+
+    // Find matching endpoint by path (fuzzy match — endpoint path is a prefix/suffix of targetPath)
+    const matchedEndpoint = (apiEndpoints || []).find((ep: any) => {
+      return targetPath.includes(ep.path) || ep.path.includes(targetPath);
+    });
+
+    if (matchedEndpoint) {
+      // ── JWT INSPECTION ──
+      if (matchedEndpoint.jwt_inspection) {
+        const token = authHeader.replace(/^Bearer\s+/i, "");
+        if (!token || token === authHeader) {
+          // No Bearer token provided
+          blocked = true;
+          blockReason = "Missing or invalid JWT token";
+          blockSeverity = "high";
+          blockRule = "JWT Inspection";
+        } else {
+          const claims = decodeJwt(token);
+          if (!claims) {
+            blocked = true;
+            blockReason = "Malformed JWT token — could not decode";
+            blockSeverity = "high";
+            blockRule = "JWT Inspection";
+          } else if (claims.exp && claims.exp < Math.floor(Date.now() / 1000)) {
+            blocked = true;
+            blockReason = "Expired JWT token";
+            blockSeverity = "medium";
+            blockRule = "JWT Inspection";
+          }
+        }
+      }
+
+      // ── SCHEMA VALIDATION ──
+      if (!blocked && matchedEndpoint.schema_validation && matchedEndpoint.method === "POST") {
+        if (requestMethod === "POST" || requestMethod === "PUT" || requestMethod === "PATCH") {
+          if (requestBody) {
+            try {
+              const parsed = JSON.parse(requestBody);
+              // Validate: must be a proper object, not a primitive or array of primitives
+              if (typeof parsed !== "object" || parsed === null) {
+                blocked = true;
+                blockReason = "Invalid request body — expected JSON object";
+                blockSeverity = "medium";
+                blockRule = "Schema Validation";
+              }
+              // Check for suspiciously large payloads (> 1MB)
+              if (requestBody.length > 1_000_000) {
+                blocked = true;
+                blockReason = "Request body exceeds maximum size (1MB)";
+                blockSeverity = "medium";
+                blockRule = "Schema Validation";
+              }
+            } catch {
+              blocked = true;
+              blockReason = "Malformed JSON in request body";
+              blockSeverity = "medium";
+              blockRule = "Schema Validation";
+            }
+          }
+        }
+      }
+
+      // Update requests_today counter
+      await supabase
+        .from("api_endpoints")
+        .update({ requests_today: (matchedEndpoint.requests_today || 0) + 1 })
+        .eq("id", matchedEndpoint.id);
+
+      if (blocked) {
+        // Update blocked_today counter
+        await supabase
+          .from("api_endpoints")
+          .update({ blocked_today: (matchedEndpoint.blocked_today || 0) + 1 })
+          .eq("id", matchedEndpoint.id);
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 2. RATE LIMITING: Per-IP request counting
+    // ──────────────────────────────────────────────
+    if (!blocked) {
+      const { data: rateLimitRules } = await supabase
+        .from("rate_limit_rules")
+        .select("*")
+        .eq("user_id", site.user_id)
+        .eq("enabled", true);
+
+      for (const rule of (rateLimitRules || [])) {
+        // Check if this rule's path matches the target
+        if (targetPath.includes(rule.path) || rule.path === "*" || rule.path === "/") {
+          const windowStart = new Date(Date.now() - rule.window_seconds * 1000).toISOString();
+
+          // Count recent hits from this IP for this path
+          const { count } = await supabase
+            .from("rate_limit_hits")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", site.user_id)
+            .eq("client_ip", clientIp)
+            .eq("path", rule.path)
+            .gte("created_at", windowStart);
+
+          if ((count || 0) >= rule.max_requests) {
+            blocked = true;
+            blockReason = `Rate limit exceeded: ${rule.max_requests} requests per ${rule.window_seconds}s`;
+            blockSeverity = "medium";
+            blockRule = `Rate Limit: ${rule.name}`;
+
+            // Update triggered count
+            await supabase
+              .from("rate_limit_rules")
+              .update({ triggered_count: rule.triggered_count + 1 })
+              .eq("id", rule.id);
+            break;
+          }
+
+          // Log this hit for rate counting
+          await supabase.from("rate_limit_hits").insert({
+            user_id: site.user_id,
+            client_ip: clientIp,
+            path: rule.path,
+          });
+        }
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 3. WAF RULES: Regex pattern matching
+    // ──────────────────────────────────────────────
+    if (!blocked) {
+      const { data: rules } = await supabase
+        .from("waf_rules").select("*")
+        .eq("user_id", site.user_id).eq("enabled", true)
+        .order("priority", { ascending: true });
+
+      const checkString = `${targetPath} ${requestBody}`;
+      for (const rule of (rules || [])) {
+        try {
+          const regex = new RegExp(rule.pattern, "i");
+          if (regex.test(checkString)) {
+            matchedRule = rule;
+            if (rule.rule_type === "block") {
+              blocked = true;
+              blockReason = rule.name;
+              blockSeverity = rule.severity;
+              blockRule = rule.name;
+            }
+            break;
+          }
+        } catch { /* invalid regex */ }
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 4. AI ANALYSIS: For requests not caught by rules
+    // ──────────────────────────────────────────────
+    let aiAnalysis: any = null;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+    if (!blocked && !matchedRule && LOVABLE_API_KEY) {
+      try {
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              {
+                role: "system",
+                content: `You are DEFLECTRA WAF. Classify this HTTP request as safe or threat. Also estimate the geographic origin of the IP address. Respond with tool call only.`
+              },
+              {
+                role: "user",
+                content: `Method: ${requestMethod}\nPath: ${targetPath}\nBody: ${requestBody.slice(0, 500)}\nUser-Agent: ${userAgent}\nIP: ${clientIp}`
+              }
+            ],
+            tools: [{
+              type: "function",
+              function: {
+                name: "classify",
+                description: "Classify request and estimate IP geolocation",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    is_threat: { type: "boolean" },
+                    threat_type: { type: "string" },
+                    severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                    action: { type: "string", enum: ["blocked", "challenged", "logged", "allowed"] },
+                    confidence: { type: "number" },
+                    reason: { type: "string" },
+                    source_lat: { type: "number" },
+                    source_lng: { type: "number" },
+                    source_country: { type: "string" }
+                  },
+                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason", "source_lat", "source_lng", "source_country"],
+                  additionalProperties: false
+                }
+              }
+            }],
+            tool_choice: { type: "function", function: { name: "classify" } },
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiResult = await aiResponse.json();
+          const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+          if (toolCall) {
+            aiAnalysis = JSON.parse(toolCall.function.arguments);
+            if (aiAnalysis.is_threat && aiAnalysis.action === "blocked") {
+              blocked = true;
+              blockReason = aiAnalysis.reason;
+              blockSeverity = aiAnalysis.severity;
+              blockRule = "AI Detection";
+            }
+            if (aiAnalysis.source_lat && aiAnalysis.source_lng) {
+              geoData = {
+                lat: aiAnalysis.source_lat,
+                lng: aiAnalysis.source_lng,
+                country: aiAnalysis.source_country || null,
+              };
+            }
+          }
+        }
+      } catch (e) {
+        console.error("AI analysis error:", e);
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 5. LOGGING: Record threats
+    // ──────────────────────────────────────────────
+    const isThreat = blocked || matchedRule || aiAnalysis?.is_threat;
+    if (isThreat) {
+      await supabase.from("threat_logs").insert({
+        user_id: site.user_id,
+        site_id: site.id,
+        source_ip: clientIp,
+        source_lat: geoData.lat,
+        source_lng: geoData.lng,
+        source_country: geoData.country,
+        threat_type: blockRule || matchedRule?.category || aiAnalysis?.threat_type || "unknown",
+        severity: blockSeverity || matchedRule?.severity || aiAnalysis?.severity || "medium",
+        action_taken: blocked ? "blocked" : (aiAnalysis?.action || "logged"),
+        request_path: targetPath,
+        request_method: requestMethod,
+        user_agent: userAgent,
+        rule_id: matchedRule?.id || null,
+        details: {
+          matched_rule: matchedRule?.name || null,
+          ai_analysis: aiAnalysis || null,
+          block_reason: blockReason || null,
+          block_rule: blockRule || null,
+          jwt_checked: matchedEndpoint?.jwt_inspection || false,
+          schema_checked: matchedEndpoint?.schema_validation || false,
+          rate_limited: blockRule?.startsWith("Rate Limit") || false,
+          blocked,
+        },
+      });
+
+      await supabase
+        .from("protected_sites")
+        .update({ threats_blocked: site.threats_blocked + 1 })
+        .eq("id", site.id);
+    }
+
+    // ──────────────────────────────────────────────
+    // 6. BLOCK or FORWARD
+    // ──────────────────────────────────────────────
+    if (blocked) {
+      return returnBlocked(blockReason, blockSeverity, blockRule, clientIp, targetPath, requestMethod);
+    }
+
+    // Forward to origin
     const originUrl = `${site.url}${targetPath}`;
     try {
       const originResponse = await fetch(originUrl, {
@@ -292,7 +440,6 @@ serve(async (req) => {
       });
 
       const responseBody = await originResponse.text();
-
       return new Response(responseBody, {
         status: originResponse.status,
         headers: {
@@ -307,17 +454,13 @@ serve(async (req) => {
         error: "Failed to reach origin server",
         origin: originUrl,
         message: fetchError instanceof Error ? fetchError.message : "Unknown error",
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
   } catch (e) {
     console.error("waf-proxy error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

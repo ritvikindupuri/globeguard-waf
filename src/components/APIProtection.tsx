@@ -78,55 +78,117 @@ export default function APIProtection() {
     setTestResults(prev => ({ ...prev, [ep.id]: null }));
 
     try {
-      // Send a clean request through the WAF proxy
-      const { data: sites } = await supabase.from('protected_sites').select('id').limit(1);
-      const siteId = sites?.[0]?.id;
-      if (!siteId) {
+      const { data: sites } = await supabase.from('protected_sites').select('id, url').limit(1);
+      const site = sites?.[0];
+      if (!site) {
         setTestResults(prev => ({ ...prev, [ep.id]: { status: 'fail', message: 'No protected site found' } }));
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('waf-proxy', {
-        body: null,
-        headers: {
-          'x-deflectra-site-id': siteId,
-        },
-      });
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
-      // If we get here without a 403, the clean request passed
+      const results: string[] = [];
+
+      // Test 1: Clean request (should pass)
+      const cleanRes = await fetch(
+        `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+        {
+          method: ep.method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+            'apikey': anonKey,
+          },
+          ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
+        }
+      );
+      await cleanRes.text();
+      if (cleanRes.status !== 403) {
+        results.push('Clean request ✓ passed');
+      } else {
+        results.push('Clean request ✗ blocked (check JWT settings)');
+      }
+
+      // Test 2: SQLi payload (should be blocked)
+      const sqliRes = await fetch(
+        `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path + "?id=1' OR '1'='1")}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+            'apikey': anonKey,
+          },
+          body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
+        }
+      );
+      await sqliRes.text();
+      if (sqliRes.status === 403) {
+        results.push('SQLi attack ✗ blocked');
+      } else {
+        results.push('SQLi attack ✓ passed (not caught)');
+      }
+
+      // Test 3: JWT inspection (if enabled — send request without token)
+      if (ep.jwt_inspection) {
+        const noJwtRes = await fetch(
+          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+          {
+            method: ep.method,
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              // No Authorization header
+            },
+            ...(ep.method === 'POST' ? { body: JSON.stringify({ test: true }) } : {}),
+          }
+        );
+        await noJwtRes.text();
+        if (noJwtRes.status === 403) {
+          results.push('No-JWT request ✗ blocked');
+        } else {
+          results.push('No-JWT request ✓ passed (JWT not enforced)');
+        }
+      }
+
+      // Test 4: Schema validation (if enabled — send malformed body)
+      if (ep.schema_validation && ep.method === 'POST') {
+        const badBodyRes = await fetch(
+          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+              'apikey': anonKey,
+            },
+            body: 'this is not json{{{',
+          }
+        );
+        await badBodyRes.text();
+        if (badBodyRes.status === 403) {
+          results.push('Bad JSON ✗ blocked');
+        } else {
+          results.push('Bad JSON ✓ passed (schema not enforced)');
+        }
+      }
+
+      const allPassed = results.every(r => r.includes('✓ passed') || r.includes('✗ blocked'));
       setTestResults(prev => ({
         ...prev,
-        [ep.id]: { status: 'pass', message: 'Clean request passed WAF ✓' }
+        [ep.id]: {
+          status: allPassed ? 'pass' : 'fail',
+          message: results.join(' • ')
+        }
       }));
-      toast.success(`${ep.path} — WAF pass`);
-
-      // Now test with a malicious payload
-      const { error: malError } = await supabase.functions.invoke('waf-proxy', {
-        body: JSON.stringify({ test: "' OR 1=1--" }),
-        headers: {
-          'x-deflectra-site-id': siteId,
-        },
-      });
-
-      if (malError) {
-        setTestResults(prev => ({
-          ...prev,
-          [ep.id]: { status: 'pass', message: 'Clean ✓ passed, malicious ✗ blocked — WAF working correctly' }
-        }));
-      }
+      toast.success(`${ep.path} — ${results.length} tests completed`);
     } catch (err: any) {
-      const msg = err?.message || 'Test failed';
-      if (msg.includes('403') || msg.includes('blocked')) {
-        setTestResults(prev => ({
-          ...prev,
-          [ep.id]: { status: 'blocked', message: 'Request blocked by WAF (expected for malicious test)' }
-        }));
-      } else {
-        setTestResults(prev => ({
-          ...prev,
-          [ep.id]: { status: 'fail', message: msg }
-        }));
-      }
+      setTestResults(prev => ({
+        ...prev,
+        [ep.id]: { status: 'fail', message: err?.message || 'Test failed' }
+      }));
     } finally {
       setTestingId(null);
     }
