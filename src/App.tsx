@@ -27,7 +27,7 @@ function ProtectedRoutes() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-mono text-muted-foreground">INITIALIZING DEFLECTRA...</p>
+          <p className="text-xs text-muted-foreground">INITIALIZING DEFLECTRA...</p>
         </div>
       </div>
     );
