@@ -216,7 +216,6 @@ Analyze the URL to determine the type of application and generate appropriate se
       rules_created: config.waf_rules?.length || 0,
       rate_limits_created: config.rate_limits?.length || 0,
       endpoints_monitored: config.api_endpoints?.length || 0,
-      threats_simulated: config.simulated_threats?.length || 0,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
