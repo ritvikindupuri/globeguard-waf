@@ -43,7 +43,7 @@ function ProtectedRoutes() {
         <Route path="/globe" element={<GlobePage />} />
         <Route path="/sites" element={<SitesPage />} />
         <Route path="/rules" element={<RulesPage />} />
-        <Route path="/threats" element={<ThreatsPage />} />
+        
         <Route path="/api-protection" element={<APIProtectionPage />} />
         <Route path="/ai-detection" element={<AIDetectionPage />} />
         <Route path="/rate-limiting" element={<RateLimitingPage />} />
