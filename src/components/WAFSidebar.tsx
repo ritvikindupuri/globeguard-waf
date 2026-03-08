@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Globe, FileCode, AlertTriangle, Activity, 
-  Server, Settings, Zap, Brain, Lock, LogOut
+  Server, Settings, Zap, Brain, Lock, LogOut, BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
