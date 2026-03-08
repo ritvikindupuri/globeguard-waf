@@ -82,7 +82,7 @@ export default function SiteManager() {
       if (data?.error) throw new Error(data.error);
 
       setAiSetupResult(data);
-      toast.success(`AI configured ${data.rules_created} rules, ${data.rate_limits_created} rate limits, ${data.endpoints_monitored} endpoints, and simulated ${data.threats_simulated} threats for ${site.name}`);
+      toast.success(`AI configured ${data.rules_created} rules, ${data.rate_limits_created} rate limits, and ${data.endpoints_monitored} API endpoints for ${site.name}`);
 
       // Refresh site data
       loadSites();
