@@ -48,6 +48,24 @@ serve(async (req) => {
       || req.headers.get("cf-connecting-ip") 
       || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
+
+    // Geolocate the client IP
+    let geoData: { lat: number | null; lng: number | null; country: string | null } = {
+      lat: null, lng: null, country: null,
+    };
+    if (clientIp !== "unknown") {
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,lat,lon`);
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo.status === "success") {
+            geoData = { lat: geo.lat, lng: geo.lon, country: geo.country };
+          }
+        }
+      } catch {
+        // Geolocation failed, continue without it
+      }
+    }
     const requestMethod = req.method;
     const requestBody = req.method !== "GET" && req.method !== "HEAD" 
       ? await req.text().catch(() => "") 
