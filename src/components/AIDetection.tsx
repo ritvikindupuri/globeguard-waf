@@ -203,10 +203,10 @@ export default function AIDetection() {
                         <span className="text-sm font-semibold text-foreground">{t.threat_type}</span>
                         <span className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 ml-5">{details?.explanation || `${t.request_method} ${t.request_path}`}</p>
+                      <p className="text-xs text-muted-foreground mt-1 ml-5">{details?.ai_analysis?.reason || details?.explanation || `${t.request_method} ${t.request_path}`}</p>
                     </div>
                     <div className="text-right ml-4">
-                      <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>{details?.confidence || '—'}%</p>
+                      <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>{details?.ai_analysis?.confidence != null ? `${Math.round(details.ai_analysis.confidence * 100)}` : details?.confidence || '—'}%</p>
                     </div>
                   </div>
                 </div>

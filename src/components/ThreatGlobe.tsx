@@ -71,6 +71,9 @@ export default function ThreatGlobe({ className }: { className?: string }) {
       attributionControl: false,
     });
 
+    // Add zoom controls
+    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+
     map.current.on('style.load', () => {
       if (!map.current) return;
       
