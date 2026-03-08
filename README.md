@@ -41,23 +41,26 @@ flowchart TB
     GLOBE --> MAPBOX
 ```
 
-*Figure 1: Deflectra System Architecture*
+<p align="center"><em>Figure 1: Deflectra System Architecture</em></p>
 
 ### Architecture Breakdown
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Entry Point | Cloudflare Workers | Routes traffic through WAF proxy |
-| WAF Engine | Supabase Edge Function | 6-stage inspection: API Shield, Rate Limiting, Regex Rules, AI Analysis, Logging, Block/Forward |
-| AI Model | Google Gemini 3 Flash | Classifies requests with confidence scores and geo-estimation |
-| Frontend | React 18 + Vite + TypeScript + Tailwind CSS | Dashboard with real-time monitoring |
-| Database | PostgreSQL with Row-Level Security | Multi-tenant data isolation |
-| Real-Time | Supabase Realtime (WebSocket) | Instant block notifications |
-| Visualization | Mapbox GL JS | 3D globe showing attack sources |
+| Layer | Purpose |
+|-------|---------|
+| Entry Point | Cloudflare Worker routes traffic through WAF proxy |
+| WAF Engine | 6-stage inspection pipeline: API Shield → Rate Limiting → Regex Rules → AI Analysis → Logging → Block/Forward |
+| AI Model | Classifies requests with confidence scores and geographic origin estimation |
+| Database | Multi-tenant data isolation with Row-Level Security |
+| Real-Time | WebSocket push notifications on blocked attacks |
+| Visualization | 3D globe rendering of attack sources |
 
 ## Tech Stack
 
-React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Mapbox GL JS, Framer Motion, Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cloudflare Workers, Resend API
+### Frontend
+React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Mapbox GL JS, Framer Motion
+
+### Backend
+Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cloudflare Workers, Resend API
 
 ## Features
 
