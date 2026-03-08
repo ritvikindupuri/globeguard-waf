@@ -28,10 +28,10 @@ export default function WAFSidebar() {
       {/* Logo */}
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <img src={deflectraLogo} alt="Deflectra" className="w-10 h-10 rounded-xl" />
+          <img src={deflectraLogo} alt="Deflectra" className="w-12 h-12 rounded-xl shadow-lg shadow-sidebar-primary/20" />
           <div>
-            <h1 className="text-sm font-bold text-white tracking-wide">DEFLECTRA</h1>
-            <p className="text-[10px] font-mono text-sidebar-primary tracking-widest">Adaptive Web Shield</p>
+            <h1 className="text-lg font-extrabold text-white tracking-wide leading-tight">DEFLECTRA</h1>
+            <p className="text-[11px] font-mono text-sidebar-primary tracking-widest">ADAPTIVE WEB SHIELD</p>
           </div>
         </div>
       </div>
