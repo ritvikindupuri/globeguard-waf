@@ -55,11 +55,11 @@ serve(async (req) => {
     };
     if (clientIp !== "unknown") {
       try {
-        const geoRes = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,lat,lon`);
+        const geoRes = await fetch(`https://ipapi.co/${clientIp}/json/`);
         if (geoRes.ok) {
           const geo = await geoRes.json();
-          if (geo.status === "success") {
-            geoData = { lat: geo.lat, lng: geo.lon, country: geo.country };
+          if (geo.latitude && geo.longitude) {
+            geoData = { lat: geo.latitude, lng: geo.longitude, country: geo.country_name || null };
           }
         }
       } catch {
