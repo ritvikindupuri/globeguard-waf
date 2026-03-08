@@ -73,7 +73,7 @@ serve(async (req) => {
     for (const rule of (rules || [])) {
       try {
         const regex = new RegExp(rule.pattern, "i");
-        if (regex.test(fullRequestString)) {
+        if (regex.test(checkString)) {
           matchedRule = rule;
           if (rule.rule_type === "block") {
             blocked = true;
