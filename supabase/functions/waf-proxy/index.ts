@@ -49,26 +49,9 @@ serve(async (req) => {
       || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
-    // Geolocate the client IP
     let geoData: { lat: number | null; lng: number | null; country: string | null } = {
       lat: null, lng: null, country: null,
     };
-    if (clientIp !== "unknown") {
-      try {
-        const geoRes = await fetch(`https://ipinfo.io/${clientIp}/json`);
-        const geoText = await geoRes.text();
-        console.log("Geo response for", clientIp, ":", geoText);
-        if (geoRes.ok) {
-          const geo = JSON.parse(geoText);
-          if (geo.loc) {
-            const [lat, lng] = geo.loc.split(",").map(Number);
-            geoData = { lat, lng, country: geo.country || null };
-          }
-        }
-      } catch (e) {
-        console.error("Geolocation error:", e);
-      }
-    }
     const requestMethod = req.method;
     const requestBody = req.method !== "GET" && req.method !== "HEAD" 
       ? await req.text().catch(() => "") 
