@@ -1,0 +1,2 @@
+UPDATE public.threat_logs SET source_lat = 52.377, source_lng = 4.897, source_country = 'Netherlands' WHERE source_ip = '34.90.220.188' AND source_lat IS NULL;
+UPDATE public.threat_logs SET source_lat = 50.851, source_lng = 4.351, source_country = 'Belgium' WHERE source_ip = '34.7.254.237' AND source_lat IS NULL;

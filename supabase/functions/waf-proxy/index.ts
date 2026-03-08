@@ -48,6 +48,10 @@ serve(async (req) => {
       || req.headers.get("cf-connecting-ip") 
       || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
+
+    let geoData: { lat: number | null; lng: number | null; country: string | null } = {
+      lat: null, lng: null, country: null,
+    };
     const requestMethod = req.method;
     const requestBody = req.method !== "GET" && req.method !== "HEAD" 
       ? await req.text().catch(() => "") 
@@ -99,7 +103,7 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are DEFLECTRA WAF. Quickly classify this HTTP request as safe or threat. Respond with tool call only.`
+                content: `You are DEFLECTRA WAF. Classify this HTTP request as safe or threat. Also estimate the geographic origin of the IP address (approximate latitude, longitude, and country). Respond with tool call only.`
               },
               {
                 role: "user",
@@ -110,7 +114,7 @@ serve(async (req) => {
               type: "function",
               function: {
                 name: "classify",
-                description: "Classify request",
+                description: "Classify request and estimate IP geolocation",
                 parameters: {
                   type: "object",
                   properties: {
@@ -119,9 +123,12 @@ serve(async (req) => {
                     severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
                     action: { type: "string", enum: ["blocked", "challenged", "logged", "allowed"] },
                     confidence: { type: "number" },
-                    reason: { type: "string" }
+                    reason: { type: "string" },
+                    source_lat: { type: "number", description: "Estimated latitude of the IP address origin" },
+                    source_lng: { type: "number", description: "Estimated longitude of the IP address origin" },
+                    source_country: { type: "string", description: "Estimated country name of the IP address origin" }
                   },
-                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason"],
+                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason", "source_lat", "source_lng", "source_country"],
                   additionalProperties: false
                 }
               }
@@ -138,6 +145,14 @@ serve(async (req) => {
             if (aiAnalysis.is_threat && aiAnalysis.action === "blocked") {
               blocked = true;
             }
+            // Use AI-estimated geo data
+            if (aiAnalysis.source_lat && aiAnalysis.source_lng) {
+              geoData = {
+                lat: aiAnalysis.source_lat,
+                lng: aiAnalysis.source_lng,
+                country: aiAnalysis.source_country || null,
+              };
+            }
           }
         }
       } catch (e) {
@@ -153,6 +168,9 @@ serve(async (req) => {
         user_id: site.user_id,
         site_id: site.id,
         source_ip: clientIp,
+        source_lat: geoData.lat,
+        source_lng: geoData.lng,
+        source_country: geoData.country,
         threat_type: matchedRule?.category || aiAnalysis?.threat_type || "unknown",
         severity: matchedRule?.severity || aiAnalysis?.severity || "medium",
         action_taken: blocked ? "blocked" : (aiAnalysis?.action || "logged"),
