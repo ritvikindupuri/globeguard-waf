@@ -1,0 +1,1 @@
+UPDATE public.protected_sites SET url = 'https://nvgfgoykyeouwrksszpb.supabase.co' WHERE name = 'Portfolio Backend (Edge Functions)';
