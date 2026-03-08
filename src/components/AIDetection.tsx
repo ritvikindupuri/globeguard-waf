@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Tables } from '@/integrations/supabase/types';
+import BlockPagePreview from '@/components/BlockPagePreview';
 
 type ThreatLog = Tables<'threat_logs'>;
 type ProtectedSite = Tables<'protected_sites'>;
