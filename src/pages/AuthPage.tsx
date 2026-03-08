@@ -15,7 +15,6 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -34,46 +33,51 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background mesh-gradient flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-3">
-          <img src={deflectraLogo} alt="Deflectra" className="w-20 h-20 mx-auto" />
+        {/* Hero */}
+        <div className="text-center space-y-4">
+          <div className="relative inline-block">
+            <img src={deflectraLogo} alt="Deflectra" className="w-24 h-24 mx-auto drop-shadow-2xl" />
+            <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-wide">DEFLECTRA</h1>
-            <p className="text-xs font-mono text-muted-foreground tracking-widest mt-1">
-              WEB APPLICATION FIREWALL
+            <h1 className="text-3xl font-bold gradient-text tracking-wide">DEFLECTRA</h1>
+            <p className="text-sm font-medium text-muted-foreground mt-1">
+              Adaptive Web Shield
             </p>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+        {/* Form */}
+        <div className="glass-card rounded-2xl p-7 space-y-6">
           <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-foreground">
-              {isLogin ? 'Authenticate' : 'Register'}
+            <h2 className="text-base font-semibold text-foreground">
+              {isLogin ? 'Sign In' : 'Create Account'}
             </h2>
-            <p className="text-xs font-mono text-muted-foreground">
-              {isLogin ? 'ENTER CREDENTIALS TO ACCESS CONTROL PANEL' : 'CREATE NEW OPERATOR ACCOUNT'}
+            <p className="text-xs text-muted-foreground">
+              {isLogin ? 'Access your WAF control panel' : 'Set up your firewall operator account'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-mono text-muted-foreground block mb-1">EMAIL</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="email"
-                  placeholder="operator@deflectra.io"
+                  placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-secondary border-border pl-10 font-mono text-sm"
+                  className="bg-secondary/50 border-border pl-10 text-sm h-11 rounded-xl"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-mono text-muted-foreground block mb-1">PASSWORD</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -81,7 +85,7 @@ export default function AuthPage() {
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-secondary border-border pl-10 font-mono text-sm"
+                  className="bg-secondary/50 border-border pl-10 text-sm h-11 rounded-xl"
                   required
                   minLength={6}
                 />
@@ -91,9 +95,9 @@ export default function AuthPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 transition-opacity font-semibold"
             >
-              {loading ? 'Processing...' : isLogin ? 'Access System' : 'Create Account'}
+              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </form>
@@ -101,15 +105,15 @@ export default function AuthPage() {
           <div className="text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
             >
-              {isLogin ? 'NEED AN ACCOUNT? REGISTER' : 'ALREADY REGISTERED? LOGIN'}
+              {isLogin ? "Don't have an account? Register" : 'Already registered? Sign in'}
             </button>
           </div>
         </div>
 
         <p className="text-center text-[10px] font-mono text-muted-foreground">
-          DEFLECTRA v3.0 • ENCRYPTED CONNECTION • AI-POWERED
+          DEFLECTRA v3.0 • AI-Powered • End-to-End Encrypted
         </p>
       </div>
     </div>
