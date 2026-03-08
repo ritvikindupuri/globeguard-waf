@@ -205,34 +205,10 @@ Analyze the URL to determine the type of application and generate appropriate se
       await supabase.from("api_endpoints").insert(endpoints);
     }
 
-    // Insert simulated threat logs so the dashboard has data
-    if (config.simulated_threats?.length > 0) {
-      const threats = config.simulated_threats.map((t: any) => ({
-        user_id: userId,
-        site_id: site_id,
-        source_ip: `${Math.floor(Math.random()*223)+1}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
-        source_country: t.source_country,
-        source_lat: t.source_lat,
-        source_lng: t.source_lng,
-        threat_type: t.threat_type,
-        severity: t.severity,
-        action_taken: "blocked",
-        request_path: t.path,
-        request_method: t.method || "GET",
-        details: {
-          explanation: t.description,
-          confidence: 85 + Math.floor(Math.random() * 15),
-          indicators: [t.threat_type],
-          simulated: true,
-        },
-      }));
-      await supabase.from("threat_logs").insert(threats);
-
-      // Update site threats_blocked count
-      await supabase.from("protected_sites")
-        .update({ threats_blocked: threats.length, status: "active" })
-        .eq("id", site_id);
-    }
+    // Mark site as active
+    await supabase.from("protected_sites")
+      .update({ status: "active" })
+      .eq("id", site_id);
 
     return new Response(JSON.stringify({
       success: true,
