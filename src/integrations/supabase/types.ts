@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_endpoints: {
+        Row: {
+          blocked_today: number
+          created_at: string
+          id: string
+          jwt_inspection: boolean
+          method: string
+          path: string
+          rate_limited: boolean
+          requests_today: number
+          schema_validation: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocked_today?: number
+          created_at?: string
+          id?: string
+          jwt_inspection?: boolean
+          method?: string
+          path: string
+          rate_limited?: boolean
+          requests_today?: number
+          schema_validation?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocked_today?: number
+          created_at?: string
+          id?: string
+          jwt_inspection?: boolean
+          method?: string
+          path?: string
+          rate_limited?: boolean
+          requests_today?: number
+          schema_validation?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       protected_sites: {
         Row: {
           created_at: string
@@ -50,6 +92,48 @@ export type Database = {
           updated_at?: string
           url?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      rate_limit_rules: {
+        Row: {
+          action: string
+          created_at: string
+          enabled: boolean
+          id: string
+          max_requests: number
+          name: string
+          path: string
+          triggered_count: number
+          updated_at: string
+          user_id: string
+          window_seconds: number
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          max_requests?: number
+          name: string
+          path: string
+          triggered_count?: number
+          updated_at?: string
+          user_id: string
+          window_seconds?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          max_requests?: number
+          name?: string
+          path?: string
+          triggered_count?: number
+          updated_at?: string
+          user_id?: string
+          window_seconds?: number
         }
         Relationships: []
       }
