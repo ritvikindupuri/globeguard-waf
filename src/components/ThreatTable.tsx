@@ -7,17 +7,17 @@ import type { Tables } from '@/integrations/supabase/types';
 type ThreatLog = Tables<'threat_logs'>;
 
 const severityStyles: Record<string, string> = {
-  critical: 'bg-threat-critical/10 text-threat-critical border-threat-critical/30',
-  high: 'bg-threat-high/10 text-threat-high border-threat-high/30',
-  medium: 'bg-threat-medium/10 text-threat-medium border-threat-medium/30',
-  low: 'bg-threat-low/10 text-threat-low border-threat-low/30',
+  critical: 'bg-threat-critical/15 text-threat-critical border-threat-critical/30',
+  high: 'bg-threat-high/15 text-threat-high border-threat-high/30',
+  medium: 'bg-threat-medium/15 text-threat-medium border-threat-medium/30',
+  low: 'bg-threat-low/15 text-threat-low border-threat-low/30',
 };
 
 const actionStyles: Record<string, string> = {
-  blocked: 'bg-destructive/10 text-destructive border-destructive/30',
-  challenged: 'bg-warning/10 text-warning border-warning/30',
-  logged: 'bg-primary/10 text-primary border-primary/30',
-  allowed: 'bg-accent/10 text-accent border-accent/30',
+  blocked: 'bg-destructive/15 text-destructive border-destructive/30',
+  challenged: 'bg-warning/15 text-warning border-warning/30',
+  logged: 'bg-primary/15 text-primary border-primary/30',
+  allowed: 'bg-accent/15 text-accent border-accent/30',
 };
 
 export default function ThreatTable() {
@@ -36,66 +36,63 @@ export default function ThreatTable() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
-
     if (!error) setThreats(data || []);
     setLoading(false);
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+    <div className="glass-card rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Recent Threats</h3>
         <span className="text-xs font-mono text-muted-foreground">
-          {threats.length > 0 ? `${threats.length} LOGGED` : 'NO THREATS YET'}
+          {threats.length > 0 ? `${threats.length} logged` : 'No threats yet'}
         </span>
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-xs font-mono text-muted-foreground">Loading threats...</div>
+        <div className="p-8 text-center text-xs text-muted-foreground">Loading...</div>
       ) : threats.length === 0 ? (
-        <div className="p-8 text-center">
+        <div className="p-12 text-center">
           <p className="text-sm text-muted-foreground">No threats logged yet</p>
-          <p className="text-xs font-mono text-muted-foreground mt-1">
-            Use the AI Detection page to analyze requests and generate threat data
+          <p className="text-xs text-muted-foreground mt-1">
+            Add a protected site, then use AI Detection to analyze incoming traffic
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border bg-secondary/30">
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">TIME</th>
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">SOURCE</th>
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">TYPE</th>
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">SEVERITY</th>
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">ACTION</th>
-                <th className="text-left px-4 py-2 text-muted-foreground font-medium">TARGET</th>
+              <tr className="border-b border-border/50 bg-secondary/20">
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">TIME</th>
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">SOURCE</th>
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">TYPE</th>
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">SEVERITY</th>
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">ACTION</th>
+                <th className="text-left px-5 py-2.5 text-muted-foreground font-medium font-mono text-[10px] tracking-wider">TARGET</th>
               </tr>
             </thead>
             <tbody>
               {threats.map((t) => (
-                <tr key={t.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                  <td className="px-4 py-2.5 text-muted-foreground">
+                <tr key={t.id} className="border-b border-border/30 hover:bg-secondary/20 transition-colors">
+                  <td className="px-5 py-3 text-muted-foreground font-mono">
                     {new Date(t.created_at).toLocaleTimeString()}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-5 py-3 font-mono">
                     <span className="text-foreground">{t.source_ip}</span>
-                    {t.source_country && (
-                      <span className="text-muted-foreground ml-2">({t.source_country})</span>
-                    )}
+                    {t.source_country && <span className="text-muted-foreground ml-1.5">({t.source_country})</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-foreground">{t.threat_type}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase border", severityStyles[t.severity] || severityStyles.low)}>
+                  <td className="px-5 py-3 text-foreground">{t.threat_type}</td>
+                  <td className="px-5 py-3">
+                    <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase border font-mono font-medium", severityStyles[t.severity] || severityStyles.low)}>
                       {t.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase border", actionStyles[t.action_taken] || actionStyles.logged)}>
+                  <td className="px-5 py-3">
+                    <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase border font-mono font-medium", actionStyles[t.action_taken] || actionStyles.logged)}>
                       {t.action_taken}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground max-w-[200px] truncate">
+                  <td className="px-5 py-3 text-muted-foreground max-w-[200px] truncate font-mono">
                     {t.request_path || '—'}
                   </td>
                 </tr>
