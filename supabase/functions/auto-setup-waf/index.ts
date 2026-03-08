@@ -129,28 +129,9 @@ Analyze the URL to determine the type of application and generate appropriate se
                       required: ["method", "path", "schema_validation", "jwt_inspection", "rate_limited"],
                       additionalProperties: false
                     }
-                  },
-                  simulated_threats: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        path: { type: "string" },
-                        method: { type: "string" },
-                        body: { type: "string" },
-                        threat_type: { type: "string" },
-                        severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
-                        description: { type: "string" },
-                        source_country: { type: "string" },
-                        source_lat: { type: "number" },
-                        source_lng: { type: "number" }
-                      },
-                      required: ["path", "method", "threat_type", "severity", "description", "source_country", "source_lat", "source_lng"],
-                      additionalProperties: false
-                    }
                   }
                 },
-                required: ["app_type", "waf_rules", "rate_limits", "api_endpoints", "simulated_threats"],
+                required: ["app_type", "waf_rules", "rate_limits", "api_endpoints"],
                 additionalProperties: false
               }
             }
