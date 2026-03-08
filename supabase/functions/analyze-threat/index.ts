@@ -55,7 +55,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are CERBERUS, an AI-powered Web Application Firewall threat analyzer. 
+            content: `You are DEFLECTRA, an AI-powered Web Application Firewall threat analyzer. 
 Analyze incoming HTTP requests for security threats. You must respond with a tool call.
 
 Threat categories you detect:
