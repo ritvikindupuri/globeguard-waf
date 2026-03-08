@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Globe, Shield, Trash2, ExternalLink, CheckCircle, XCircle, Copy } from 'lucide-react';
+import { Plus, Globe, Shield, Trash2, ExternalLink, CheckCircle, XCircle, Copy, Loader2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,8 @@ export default function SiteManager() {
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aiSetupRunning, setAiSetupRunning] = useState<string | null>(null);
+  const [aiSetupResult, setAiSetupResult] = useState<any>(null);
 
   const proxyBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waf-proxy`;
 
@@ -36,7 +38,7 @@ export default function SiteManager() {
 
   const handleAddSite = async () => {
     if (!user || !newUrl) {
-      toast.error('Please enter your app\'s URL');
+      toast.error("Please enter your app's URL");
       return;
     }
     try { new URL(newUrl); } catch { toast.error('Please enter a valid URL'); return; }
@@ -59,12 +61,35 @@ export default function SiteManager() {
     setNewUrl('');
     setNewName('');
     setAdding(false);
-    toast.success(`${data.name} is now protected by Deflectra`);
+    toast.success(`${data.name} added — AI is now configuring your WAF...`);
 
-    setTimeout(async () => {
-      await supabase.from('protected_sites').update({ status: 'active' }).eq('id', data.id);
-      setSites(prev => prev.map(s => s.id === data.id ? { ...s, status: 'active' } : s));
-    }, 3000);
+    // Trigger AI auto-setup
+    runAiSetup(data);
+  };
+
+  const runAiSetup = async (site: ProtectedSite) => {
+    setAiSetupRunning(site.id);
+    setAiSetupResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-setup-waf', {
+        body: {
+          site_url: site.url,
+          site_name: site.name,
+          site_id: site.id,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setAiSetupResult(data);
+      toast.success(`AI configured ${data.rules_created} rules, ${data.rate_limits_created} rate limits, ${data.endpoints_monitored} endpoints, and simulated ${data.threats_simulated} threats for ${site.name}`);
+
+      // Refresh site data
+      loadSites();
+    } catch (err: any) {
+      toast.error(err.message || 'AI auto-setup failed');
+    }
+    setAiSetupRunning(null);
   };
 
   const removeSite = async (id: string) => {
@@ -81,7 +106,7 @@ export default function SiteManager() {
   };
 
   const statusStyles: Record<string, string> = {
-    active: 'text-accent',
+    active: 'text-primary',
     inactive: 'text-muted-foreground',
     pending: 'text-warning animate-pulse',
   };
@@ -93,12 +118,12 @@ export default function SiteManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Protected Sites</h2>
-          <p className="text-xs text-muted-foreground">Add your app's URL to start WAF protection</p>
+          <p className="text-xs text-muted-foreground">Add your app's URL — AI will auto-configure WAF rules, rate limits & threat detection</p>
         </div>
         <Button
           size="sm"
           onClick={() => setAdding(!adding)}
-          className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl"
+          className="bg-primary text-primary-foreground rounded-xl"
         >
           <Plus className="w-4 h-4 mr-1" />
           Add Site
@@ -108,7 +133,7 @@ export default function SiteManager() {
       {adding && (
         <div className="glass-card gradient-border rounded-xl p-5 space-y-3">
           <p className="text-xs font-semibold text-primary">Add Your App to Deflectra</p>
-          <p className="text-xs text-muted-foreground">Enter the URL of the web application you want to protect.</p>
+          <p className="text-xs text-muted-foreground">Enter the URL of your web application. Our AI will automatically analyze it and generate WAF rules, rate limits, and API monitoring tailored to your app type.</p>
           <Input
             placeholder="https://your-app.com"
             value={newUrl}
@@ -122,10 +147,77 @@ export default function SiteManager() {
             className="bg-secondary/50 border-border text-sm rounded-xl h-10"
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddSite} className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg">
+            <Button size="sm" onClick={handleAddSite} className="bg-primary text-primary-foreground rounded-lg">
               <Shield className="w-3.5 h-3.5 mr-1" /> Protect Site
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setAdding(false)} className="text-muted-foreground rounded-lg">Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Setup Progress */}
+      {aiSetupRunning && (
+        <div className="glass-card rounded-xl p-5 border-primary/30 border">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-primary animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">AI Auto-Configuration Running...</p>
+              <p className="text-xs text-muted-foreground">Analyzing your application and generating security rules</p>
+            </div>
+            <Loader2 className="w-5 h-5 text-primary animate-spin ml-auto" />
+          </div>
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span>Detecting application type and tech stack...</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span>Generating WAF rules (SQLi, XSS, RCE, path traversal)...</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span>Setting up rate limiting and API monitoring...</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span>Simulating threat traffic for dashboard data...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Setup Complete */}
+      {aiSetupResult && !aiSetupRunning && (
+        <div className="glass-card rounded-xl p-5 border-primary/30 border">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">AI Auto-Configuration Complete</p>
+              <p className="text-xs text-muted-foreground">Detected app type: <span className="text-primary font-medium">{aiSetupResult.app_type}</span></p>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-secondary/30 rounded-lg p-3 text-center">
+              <p className="text-lg font-bold text-foreground">{aiSetupResult.rules_created}</p>
+              <p className="text-[10px] font-mono text-muted-foreground">WAF RULES</p>
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3 text-center">
+              <p className="text-lg font-bold text-foreground">{aiSetupResult.rate_limits_created}</p>
+              <p className="text-[10px] font-mono text-muted-foreground">RATE LIMITS</p>
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3 text-center">
+              <p className="text-lg font-bold text-foreground">{aiSetupResult.endpoints_monitored}</p>
+              <p className="text-[10px] font-mono text-muted-foreground">API ENDPOINTS</p>
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3 text-center">
+              <p className="text-lg font-bold text-foreground">{aiSetupResult.threats_simulated}</p>
+              <p className="text-[10px] font-mono text-muted-foreground">THREATS SIM.</p>
+            </div>
           </div>
         </div>
       )}
@@ -134,7 +226,7 @@ export default function SiteManager() {
         <div className="glass-card rounded-xl p-12 text-center">
           <Globe className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
           <p className="text-sm text-muted-foreground font-medium">No protected sites yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Add your first web app to start WAF protection</p>
+          <p className="text-xs text-muted-foreground mt-1">Add your first web app — AI will handle the rest</p>
         </div>
       )}
 
@@ -156,7 +248,6 @@ export default function SiteManager() {
                   </div>
                   <p className="text-xs font-mono text-muted-foreground">{site.url}</p>
                   
-                  {/* WAF Proxy URL */}
                   <div className="mt-2 bg-secondary/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
                     <div>
                       <p className="text-[10px] font-mono text-muted-foreground">WAF PROXY ENDPOINT</p>
@@ -177,7 +268,7 @@ export default function SiteManager() {
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-mono text-muted-foreground">SSL</p>
-                  {site.ssl_valid ? <CheckCircle className="w-4 h-4 text-accent" /> : <XCircle className="w-4 h-4 text-destructive" />}
+                  {site.ssl_valid ? <CheckCircle className="w-4 h-4 text-primary" /> : <XCircle className="w-4 h-4 text-destructive" />}
                 </div>
                 <div className="flex gap-1">
                   <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground hover:text-foreground rounded-lg">
@@ -195,9 +286,9 @@ export default function SiteManager() {
 
       {sites.length > 0 && (
         <div className="glass-card rounded-xl p-4">
-          <h4 className="text-xs font-semibold text-foreground mb-2">How WAF Protection Works</h4>
+          <h4 className="text-xs font-semibold text-foreground mb-2">How Deflectra WAF Protection Works</h4>
           <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
-            <li>Add your app's URL above (the origin you want to protect)</li>
+            <li>Add your app's URL — AI automatically generates WAF rules, rate limits & API monitoring</li>
             <li>Copy the WAF proxy endpoint shown for your site</li>
             <li>Route traffic through the proxy — it inspects every request with your rules + AI</li>
             <li>Clean traffic is forwarded to your origin; threats are blocked and logged</li>

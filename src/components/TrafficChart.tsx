@@ -53,29 +53,30 @@ export default function TrafficChart() {
         <AreaChart data={data}>
           <defs>
             <linearGradient id="colorThreats" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0} />
+              <stop offset="5%" stopColor="hsl(173, 58%, 39%)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="hsl(173, 58%, 39%)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 18%, 16%)" />
-          <XAxis dataKey="time" tick={{ fill: 'hsl(240, 10%, 50%)', fontSize: 10 }} stroke="hsl(240, 18%, 16%)" />
-          <YAxis tick={{ fill: 'hsl(240, 10%, 50%)', fontSize: 10 }} stroke="hsl(240, 18%, 16%)" allowDecimals={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 20%, 88%)" />
+          <XAxis dataKey="time" tick={{ fill: 'hsl(215, 16%, 47%)', fontSize: 10 }} stroke="hsl(214, 20%, 88%)" />
+          <YAxis tick={{ fill: 'hsl(215, 16%, 47%)', fontSize: 10 }} stroke="hsl(214, 20%, 88%)" allowDecimals={false} />
           <Tooltip
             contentStyle={{
-              backgroundColor: 'hsl(240, 22%, 10%)',
-              border: '1px solid hsl(240, 18%, 16%)',
+              backgroundColor: 'hsl(0, 0%, 100%)',
+              border: '1px solid hsl(214, 20%, 88%)',
               borderRadius: '12px',
               fontSize: '11px',
               fontFamily: 'JetBrains Mono',
+              color: 'hsl(215, 28%, 17%)',
             }}
-            labelStyle={{ color: 'hsl(240, 10%, 95%)' }}
+            labelStyle={{ color: 'hsl(215, 28%, 17%)' }}
           />
-          <Area type="monotone" dataKey="threats" stroke="hsl(262, 83%, 58%)" fill="url(#colorThreats)" strokeWidth={2} />
+          <Area type="monotone" dataKey="threats" stroke="hsl(173, 58%, 39%)" fill="url(#colorThreats)" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
       {data.every(d => d.threats === 0) && (
         <p className="text-xs text-muted-foreground text-center mt-2">
-          No threat data yet — use AI Detection to analyze traffic
+          No threat data yet — add a protected site to auto-generate data
         </p>
       )}
     </div>
