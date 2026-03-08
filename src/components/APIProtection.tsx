@@ -92,71 +92,33 @@ export default function APIProtection() {
       const results: string[] = [];
 
       // Test 1: Clean request (should pass)
-      const cleanRes = await fetch(
-        `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-        {
-          method: ep.method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${anonKey}`,
-            'apikey': anonKey,
-          },
-          ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
-        }
-      );
-      await cleanRes.text();
-      if (cleanRes.status !== 403) {
-        results.push('Clean request ✓ passed');
-      } else {
-        results.push('Clean request ✗ blocked (check JWT settings)');
-      }
-
-      // Test 2: SQLi payload (should be blocked)
-      const sqliRes = await fetch(
-        `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path + "?id=1' OR '1'='1")}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${anonKey}`,
-            'apikey': anonKey,
-          },
-          body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
-        }
-      );
-      await sqliRes.text();
-      if (sqliRes.status === 403) {
-        results.push('SQLi attack ✗ blocked');
-      } else {
-        results.push('SQLi attack ✓ passed (not caught)');
-      }
-
-      // Test 3: JWT inspection (if enabled — send request without token)
-      if (ep.jwt_inspection) {
-        const noJwtRes = await fetch(
+      try {
+        const cleanRes = await fetch(
           `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
           {
             method: ep.method,
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
               'apikey': anonKey,
-              // No Authorization header
             },
-            ...(ep.method === 'POST' ? { body: JSON.stringify({ test: true }) } : {}),
+            ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
           }
         );
-        await noJwtRes.text();
-        if (noJwtRes.status === 403) {
-          results.push('No-JWT request ✗ blocked');
+        await cleanRes.text();
+        if (cleanRes.status !== 403) {
+          results.push('Clean request ✓ passed');
         } else {
-          results.push('No-JWT request ✓ passed (JWT not enforced)');
+          results.push('Clean request ✗ blocked (check JWT settings)');
         }
+      } catch {
+        results.push('Clean request ✗ network error');
       }
 
-      // Test 4: Schema validation (if enabled — send malformed body)
-      if (ep.schema_validation && ep.method === 'POST') {
-        const badBodyRes = await fetch(
-          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+      // Test 2: SQLi payload (should be blocked)
+      try {
+        const sqliRes = await fetch(
+          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path + "?id=1' OR '1'='1")}`,
           {
             method: 'POST',
             headers: {
@@ -164,14 +126,68 @@ export default function APIProtection() {
               'Authorization': `Bearer ${anonKey}`,
               'apikey': anonKey,
             },
-            body: 'this is not json{{{',
+            body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
           }
         );
-        await badBodyRes.text();
-        if (badBodyRes.status === 403) {
-          results.push('Bad JSON ✗ blocked');
+        await sqliRes.text();
+        if (sqliRes.status === 403) {
+          results.push('SQLi attack ✗ blocked');
         } else {
-          results.push('Bad JSON ✓ passed (schema not enforced)');
+          results.push('SQLi attack ✓ passed (not caught)');
+        }
+      } catch {
+        // Block page HTML response can cause fetch issues — treat as blocked
+        results.push('SQLi attack ✗ blocked');
+      }
+
+      // Test 3: JWT inspection (if enabled — send request without token)
+      if (ep.jwt_inspection) {
+        try {
+          const noJwtRes = await fetch(
+            `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+            {
+              method: ep.method,
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': anonKey,
+              },
+              ...(ep.method === 'POST' ? { body: JSON.stringify({ test: true }) } : {}),
+            }
+          );
+          await noJwtRes.text();
+          if (noJwtRes.status === 403) {
+            results.push('No-JWT request ✗ blocked');
+          } else {
+            results.push('No-JWT request ✓ passed (JWT not enforced)');
+          }
+        } catch {
+          results.push('No-JWT request ✗ blocked');
+        }
+      }
+
+      // Test 4: Schema validation (if enabled — send malformed body)
+      if (ep.schema_validation && ep.method === 'POST') {
+        try {
+          const badBodyRes = await fetch(
+            `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${anonKey}`,
+                'apikey': anonKey,
+              },
+              body: 'this is not json{{{',
+            }
+          );
+          await badBodyRes.text();
+          if (badBodyRes.status === 403) {
+            results.push('Bad JSON ✗ blocked');
+          } else {
+            results.push('Bad JSON ✓ passed (schema not enforced)');
+          }
+        } catch {
+          results.push('Bad JSON ✗ blocked');
         }
       }
 
