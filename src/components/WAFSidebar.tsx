@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import deflectraLogo from '@/assets/deflectra-logo.png';
+import deflectraLogo from '@/assets/deflectra-icon.png';
 
 const navItems = [
   { to: '/', icon: Activity, label: 'Dashboard' },
