@@ -38,7 +38,7 @@ export default function AuthPage() {
         {/* Hero */}
         <div className="text-center space-y-4">
           <div className="relative inline-block">
-            <img src={deflectraLogo} alt="Deflectra" className="w-24 h-24 mx-auto drop-shadow-2xl" />
+            <img src={deflectraIcon} alt="Deflectra" className="w-20 h-20 mx-auto drop-shadow-2xl" />
             <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
           </div>
           <div>
