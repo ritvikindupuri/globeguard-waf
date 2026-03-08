@@ -65,10 +65,10 @@ serve(async (req) => {
       .eq("enabled", true)
       .order("priority", { ascending: true });
 
-    // Check rules against the request
+    // Check rules against the request (only path + body, NOT user-agent to avoid false positives)
     let blocked = false;
     let matchedRule: any = null;
-    const fullRequestString = `${targetPath} ${requestBody} ${userAgent}`;
+    const checkString = `${targetPath} ${requestBody}`;
 
     for (const rule of (rules || [])) {
       try {
