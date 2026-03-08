@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import cerberusLogo from '@/assets/cerberus-logo.png';
+import deflectraLogo from '@/assets/deflectra-logo.png';
 
 const navItems = [
   { to: '/', icon: Activity, label: 'Dashboard' },
@@ -25,18 +25,16 @@ export default function WAFSidebar() {
 
   return (
     <aside className="w-64 h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0 z-40">
-      {/* Logo */}
       <div className="p-5 border-b border-border">
         <div className="flex items-center gap-3">
-          <img src={cerberusLogo} alt="Cerberus WAF" className="w-9 h-9 rounded-lg" />
+          <img src={deflectraLogo} alt="Deflectra" className="w-9 h-9 rounded-lg" />
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-wide">CERBERUS</h1>
+            <h1 className="text-sm font-bold text-foreground tracking-wide">DEFLECTRA</h1>
             <p className="text-[10px] font-mono text-muted-foreground tracking-widest">WEB APP FIREWALL</p>
           </div>
         </div>
       </div>
 
-      {/* Status indicator */}
       <div className="px-5 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse-glow" />
@@ -44,7 +42,6 @@ export default function WAFSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-3 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.to;
@@ -69,7 +66,6 @@ export default function WAFSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="p-4 border-t border-border space-y-3">
         <div className="text-[10px] font-mono text-muted-foreground space-y-1">
           <div className="flex justify-between">
