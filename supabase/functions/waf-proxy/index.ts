@@ -103,7 +103,7 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are DEFLECTRA WAF. Quickly classify this HTTP request as safe or threat. Respond with tool call only.`
+                content: `You are DEFLECTRA WAF. Classify this HTTP request as safe or threat. Also estimate the geographic origin of the IP address (approximate latitude, longitude, and country). Respond with tool call only.`
               },
               {
                 role: "user",
@@ -114,7 +114,7 @@ serve(async (req) => {
               type: "function",
               function: {
                 name: "classify",
-                description: "Classify request",
+                description: "Classify request and estimate IP geolocation",
                 parameters: {
                   type: "object",
                   properties: {
@@ -123,9 +123,12 @@ serve(async (req) => {
                     severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
                     action: { type: "string", enum: ["blocked", "challenged", "logged", "allowed"] },
                     confidence: { type: "number" },
-                    reason: { type: "string" }
+                    reason: { type: "string" },
+                    source_lat: { type: "number", description: "Estimated latitude of the IP address origin" },
+                    source_lng: { type: "number", description: "Estimated longitude of the IP address origin" },
+                    source_country: { type: "string", description: "Estimated country name of the IP address origin" }
                   },
-                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason"],
+                  required: ["is_threat", "threat_type", "severity", "action", "confidence", "reason", "source_lat", "source_lng", "source_country"],
                   additionalProperties: false
                 }
               }
