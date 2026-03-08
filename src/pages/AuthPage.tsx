@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Shield, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import cerberusLogo from '@/assets/cerberus-logo.png';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -23,7 +24,7 @@ export default function AuthPage() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast.success('Account created. Check your email to confirm.');
+        toast.success('Account created. Access granted.');
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -35,20 +36,16 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mx-auto glow-primary">
-            <Shield className="w-8 h-8 text-primary" />
-          </div>
+          <img src={cerberusLogo} alt="Cerberus WAF" className="w-20 h-20 mx-auto" />
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-wide">AEGIS WAF</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-wide">CERBERUS</h1>
             <p className="text-xs font-mono text-muted-foreground tracking-widest mt-1">
-              ADVANCED WEB APPLICATION FIREWALL
+              WEB APPLICATION FIREWALL
             </p>
           </div>
         </div>
 
-        {/* Auth Form */}
         <div className="bg-card border border-border rounded-lg p-6 space-y-5">
           <div className="space-y-1">
             <h2 className="text-sm font-semibold text-foreground">
@@ -66,7 +63,7 @@ export default function AuthPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="email"
-                  placeholder="operator@aegis.security"
+                  placeholder="operator@cerberus.security"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-secondary border-border pl-10 font-mono text-sm"
@@ -112,7 +109,7 @@ export default function AuthPage() {
         </div>
 
         <p className="text-center text-[10px] font-mono text-muted-foreground">
-          AEGIS WAF v2.4.1 • ENCRYPTED CONNECTION
+          CERBERUS WAF v3.0 • ENCRYPTED CONNECTION • AI-POWERED
         </p>
       </div>
     </div>

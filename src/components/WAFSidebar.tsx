@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  Shield, Globe, FileCode, AlertTriangle, Activity, 
+  Globe, FileCode, AlertTriangle, Activity, 
   Server, Settings, Zap, Brain, Lock, LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import cerberusLogo from '@/assets/cerberus-logo.png';
 
 const navItems = [
   { to: '/', icon: Activity, label: 'Dashboard' },
@@ -27,12 +28,10 @@ export default function WAFSidebar() {
       {/* Logo */}
       <div className="p-5 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center glow-primary">
-            <Shield className="w-5 h-5 text-primary" />
-          </div>
+          <img src={cerberusLogo} alt="Cerberus WAF" className="w-9 h-9 rounded-lg" />
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-wide">AEGIS WAF</h1>
-            <p className="text-[10px] font-mono text-muted-foreground tracking-widest">ADVANCED FIREWALL</p>
+            <h1 className="text-sm font-bold text-foreground tracking-wide">CERBERUS</h1>
+            <p className="text-[10px] font-mono text-muted-foreground tracking-widest">WEB APP FIREWALL</p>
           </div>
         </div>
       </div>
