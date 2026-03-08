@@ -47,6 +47,7 @@ function ProtectedRoutes() {
         <Route path="/api-protection" element={<APIProtectionPage />} />
         <Route path="/ai-detection" element={<AIDetectionPage />} />
         <Route path="/rate-limiting" element={<RateLimitingPage />} />
+        <Route path="/setup-guide" element={<SetupGuidePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
