@@ -14,35 +14,42 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const authHeader = req.headers.get("Authorization");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    let userId: string | null = null;
-    if (authHeader) {
-      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-      const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-      userId = user?.id || null;
-    }
-
-    if (!userId) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Use the user's auth token so RLS applies correctly
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Verify user
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = claimsData.claims.sub;
 
     const body = await req.json();
     const { site_url, site_name, site_id } = body;
 
     if (!site_url || !site_id) {
       return new Response(JSON.stringify({ error: "site_url and site_id are required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Ask AI to generate WAF rules, rate limits, and API endpoints for this type of app
+    console.log(`Auto-setup WAF for site: ${site_name} (${site_url}), user: ${userId}`);
+
+    // Ask AI to generate WAF config
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -62,12 +69,11 @@ You must generate:
 2. Rate limiting rules (appropriate limits for common endpoints)
 3. API endpoints to monitor (common paths for this type of app)
 
-Be practical and realistic. Generate rules that would actually protect this type of application.
-For example, an e-commerce site needs payment endpoint protection, while a blog needs comment spam protection.`
+Be practical and realistic. Generate rules that would actually protect this type of application.`
           },
           {
             role: "user",
-            content: `Generate WAF security configuration for this application:
+            content: `Generate WAF security configuration for:
 URL: ${site_url}
 Name: ${site_name || 'Unknown'}
 
@@ -83,7 +89,7 @@ Analyze the URL to determine the type of application and generate appropriate se
               parameters: {
                 type: "object",
                 properties: {
-                  app_type: { type: "string", description: "Detected application type (e.g., e-commerce, blog, SaaS, API)" },
+                  app_type: { type: "string", description: "Detected application type" },
                   waf_rules: {
                     type: "array",
                     items: {
@@ -143,6 +149,8 @@ Analyze the URL to determine the type of application and generate appropriate se
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
+      const errBody = await aiResponse.text().catch(() => "");
+      console.error(`AI API error [${status}]: ${errBody}`);
       if (status === 429) {
         return new Response(JSON.stringify({ error: "AI rate limit exceeded. Try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -153,7 +161,7 @@ Analyze the URL to determine the type of application and generate appropriate se
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("AI configuration failed");
+      throw new Error(`AI configuration failed [${status}]`);
     }
 
     const aiResult = await aiResponse.json();
@@ -161,6 +169,7 @@ Analyze the URL to determine the type of application and generate appropriate se
     if (!toolCall) throw new Error("AI did not return configuration");
 
     const config = JSON.parse(toolCall.function.arguments);
+    console.log(`AI detected app type: ${config.app_type}, rules: ${config.waf_rules?.length}, rate_limits: ${config.rate_limits?.length}, endpoints: ${config.api_endpoints?.length}`);
 
     // Insert WAF rules
     if (config.waf_rules?.length > 0) {
@@ -175,7 +184,9 @@ Analyze the URL to determine the type of application and generate appropriate se
         rule_type: "block",
         enabled: true,
       }));
-      await supabase.from("waf_rules").insert(rules);
+      const { error: rulesError } = await supabase.from("waf_rules").insert(rules);
+      if (rulesError) console.error("Failed to insert rules:", rulesError);
+      else console.log(`Inserted ${rules.length} WAF rules`);
     }
 
     // Insert rate limit rules
@@ -189,7 +200,9 @@ Analyze the URL to determine the type of application and generate appropriate se
         action: r.action,
         enabled: true,
       }));
-      await supabase.from("rate_limit_rules").insert(rateLimits);
+      const { error: rlError } = await supabase.from("rate_limit_rules").insert(rateLimits);
+      if (rlError) console.error("Failed to insert rate limits:", rlError);
+      else console.log(`Inserted ${rateLimits.length} rate limit rules`);
     }
 
     // Insert API endpoints
@@ -202,7 +215,9 @@ Analyze the URL to determine the type of application and generate appropriate se
         jwt_inspection: e.jwt_inspection,
         rate_limited: e.rate_limited,
       }));
-      await supabase.from("api_endpoints").insert(endpoints);
+      const { error: epError } = await supabase.from("api_endpoints").insert(endpoints);
+      if (epError) console.error("Failed to insert endpoints:", epError);
+      else console.log(`Inserted ${endpoints.length} API endpoints`);
     }
 
     // Mark site as active
