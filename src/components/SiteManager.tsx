@@ -1,38 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Globe, Shield, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface ProtectedSite {
-  id: string;
-  url: string;
-  name: string;
-  status: 'active' | 'inactive' | 'pending';
-  threatsBlocked: number;
-  lastCheck: string;
-  sslValid: boolean;
-}
-
-const INITIAL_SITES: ProtectedSite[] = [
-  { id: '1', url: 'https://api.example.com', name: 'Production API', status: 'active', threatsBlocked: 12847, lastCheck: '2 min ago', sslValid: true },
-  { id: '2', url: 'https://app.example.com', name: 'Web Application', status: 'active', threatsBlocked: 8432, lastCheck: '1 min ago', sslValid: true },
-  { id: '3', url: 'https://staging.example.com', name: 'Staging', status: 'inactive', threatsBlocked: 324, lastCheck: '15 min ago', sslValid: false },
-];
+type ProtectedSite = Tables<'protected_sites'>;
 
 export default function SiteManager() {
-  const [sites, setSites] = useState<ProtectedSite[]>(INITIAL_SITES);
+  const { user } = useAuth();
+  const [sites, setSites] = useState<ProtectedSite[]>([]);
   const [newUrl, setNewUrl] = useState('');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleAddSite = () => {
-    if (!newUrl) {
+  useEffect(() => {
+    if (!user) return;
+    loadSites();
+  }, [user]);
+
+  const loadSites = async () => {
+    const { data, error } = await supabase
+      .from('protected_sites')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Failed to load sites');
+    } else {
+      setSites(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleAddSite = async () => {
+    if (!user || !newUrl) {
       toast.error('Please enter a URL');
       return;
     }
-    
+
     try {
       new URL(newUrl);
     } catch {
@@ -40,38 +49,55 @@ export default function SiteManager() {
       return;
     }
 
-    const site: ProtectedSite = {
-      id: Date.now().toString(),
-      url: newUrl,
-      name: newName || new URL(newUrl).hostname,
-      status: 'pending',
-      threatsBlocked: 0,
-      lastCheck: 'Just now',
-      sslValid: newUrl.startsWith('https'),
-    };
+    const { data, error } = await supabase
+      .from('protected_sites')
+      .insert({
+        user_id: user.id,
+        url: newUrl,
+        name: newName || new URL(newUrl).hostname,
+        status: 'pending',
+        ssl_valid: newUrl.startsWith('https'),
+      })
+      .select()
+      .single();
 
-    setSites(prev => [...prev, site]);
+    if (error) {
+      toast.error('Failed to add site');
+      return;
+    }
+
+    setSites(prev => [data, ...prev]);
     setNewUrl('');
     setNewName('');
     setAdding(false);
-    toast.success(`${site.name} added to WAF protection`);
+    toast.success(`${data.name} added to WAF protection`);
 
     // Simulate activation
-    setTimeout(() => {
-      setSites(prev => prev.map(s => s.id === site.id ? { ...s, status: 'active' } : s));
+    setTimeout(async () => {
+      await supabase.from('protected_sites').update({ status: 'active' }).eq('id', data.id);
+      setSites(prev => prev.map(s => s.id === data.id ? { ...s, status: 'active' } : s));
     }, 3000);
   };
 
-  const removeSite = (id: string) => {
+  const removeSite = async (id: string) => {
+    const { error } = await supabase.from('protected_sites').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to remove site');
+      return;
+    }
     setSites(prev => prev.filter(s => s.id !== id));
     toast.success('Site removed from protection');
   };
 
-  const statusStyles = {
+  const statusStyles: Record<string, string> = {
     active: 'text-accent',
     inactive: 'text-muted-foreground',
     pending: 'text-warning animate-pulse',
   };
+
+  if (loading) {
+    return <div className="text-xs font-mono text-muted-foreground">Loading sites...</div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -113,6 +139,14 @@ export default function SiteManager() {
         </div>
       )}
 
+      {sites.length === 0 && !adding && (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <Globe className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No protected sites yet</p>
+          <p className="text-xs font-mono text-muted-foreground mt-1">Add your first site to begin WAF protection</p>
+        </div>
+      )}
+
       <div className="space-y-2">
         {sites.map((site) => (
           <div key={site.id} className="bg-card border border-border rounded-lg p-4 hover:bg-secondary/20 transition-all">
@@ -134,11 +168,11 @@ export default function SiteManager() {
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <p className="text-xs font-mono text-muted-foreground">THREATS BLOCKED</p>
-                  <p className="text-sm font-bold font-mono text-foreground">{site.threatsBlocked.toLocaleString()}</p>
+                  <p className="text-sm font-bold font-mono text-foreground">{site.threats_blocked.toLocaleString()}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-mono text-muted-foreground">SSL</p>
-                  {site.sslValid ? (
+                  {site.ssl_valid ? (
                     <CheckCircle className="w-4 h-4 text-accent" />
                   ) : (
                     <XCircle className="w-4 h-4 text-destructive" />
