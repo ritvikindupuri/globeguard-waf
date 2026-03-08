@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Brain, AlertTriangle, Send, Loader2, Globe, Shield } from 'lucide-react';
+import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -185,8 +186,23 @@ export default function AIDetection() {
 
       {/* Recent */}
       <div className="glass-card rounded-xl">
-        <div className="px-5 py-3 border-b border-border/50">
+        <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Recent AI Detections</h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                <p className="font-semibold mb-1">AI Confidence Score</p>
+                <p className="text-muted-foreground">The percentage shown is the AI model's confidence that a request is malicious. It analyzes request path, method, body, headers &amp; IP against known attack patterns (SQLi, XSS, path traversal, etc.).</p>
+                <p className="mt-1.5">• <span className="text-threat-critical font-medium">90–100%</span> — Almost certainly an attack</p>
+                <p>• <span className="text-threat-high font-medium">60–89%</span> — Likely malicious</p>
+                <p>• <span className="text-threat-medium font-medium">30–59%</span> — Suspicious, possible false positive</p>
+                <p>• <span className="text-threat-low font-medium">0–29%</span> — Probably safe</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {recentThreats.length === 0 ? (
           <div className="p-8 text-center"><p className="text-xs text-muted-foreground">No threats analyzed yet</p></div>
@@ -194,6 +210,10 @@ export default function AIDetection() {
           <div className="divide-y divide-border/30">
             {recentThreats.map((t) => {
               const details = t.details as any;
+              const rawConf = details?.ai_analysis?.confidence ?? details?.confidence;
+              const confidence = rawConf != null
+                ? (rawConf <= 1 ? Math.round(rawConf * 100) : Math.round(rawConf))
+                : null;
               return (
                 <div key={t.id} className="px-5 py-3 hover:bg-secondary/20 transition-colors">
                   <div className="flex items-start justify-between">
@@ -206,7 +226,9 @@ export default function AIDetection() {
                       <p className="text-xs text-muted-foreground mt-1 ml-5">{details?.ai_analysis?.reason || details?.explanation || `${t.request_method} ${t.request_path}`}</p>
                     </div>
                     <div className="text-right ml-4">
-                      <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>{details?.ai_analysis?.confidence != null ? `${Math.round(details.ai_analysis.confidence * 100)}` : details?.confidence || '—'}%</p>
+                      <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>
+                        {confidence != null ? `${confidence}%` : '—'}
+                      </p>
                     </div>
                   </div>
                 </div>
