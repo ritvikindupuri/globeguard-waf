@@ -1,7 +1,10 @@
 import { ReactNode } from 'react';
 import WAFSidebar from '@/components/WAFSidebar';
+import { useRealtimeThreats } from '@/hooks/useRealtimeThreats';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  useRealtimeThreats();
+
   return (
     <div className="min-h-screen bg-background mesh-gradient">
       <WAFSidebar />
