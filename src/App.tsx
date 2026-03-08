@@ -9,7 +9,7 @@ import Index from "./pages/Index";
 import GlobePage from "./pages/GlobePage";
 import SitesPage from "./pages/SitesPage";
 import RulesPage from "./pages/RulesPage";
-import ThreatsPage from "./pages/ThreatsPage";
+
 import APIProtectionPage from "./pages/APIProtectionPage";
 import AIDetectionPage from "./pages/AIDetectionPage";
 import RateLimitingPage from "./pages/RateLimitingPage";
