@@ -14,6 +14,7 @@ import APIProtectionPage from "./pages/APIProtectionPage";
 import AIDetectionPage from "./pages/AIDetectionPage";
 import RateLimitingPage from "./pages/RateLimitingPage";
 import SettingsPage from "./pages/SettingsPage";
+import SetupGuidePage from "./pages/SetupGuidePage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
@@ -46,6 +47,7 @@ function ProtectedRoutes() {
         <Route path="/api-protection" element={<APIProtectionPage />} />
         <Route path="/ai-detection" element={<AIDetectionPage />} />
         <Route path="/rate-limiting" element={<RateLimitingPage />} />
+        <Route path="/setup-guide" element={<SetupGuidePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
