@@ -71,17 +71,24 @@ export default function WAFSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="text-[10px] font-mono text-muted-foreground space-y-1">
           <div className="flex justify-between">
-            <span>VERSION</span>
-            <span className="text-foreground">2.4.1</span>
+            <span>OPERATOR</span>
+            <span className="text-foreground truncate ml-2 max-w-[120px]">{user?.email?.split('@')[0]}</span>
           </div>
           <div className="flex justify-between">
             <span>ENGINE</span>
             <span className="text-accent">ACTIVE</span>
           </div>
         </div>
+        <button
+          onClick={signOut}
+          className="flex items-center gap-2 text-xs font-mono text-muted-foreground hover:text-destructive transition-colors w-full"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          SIGN OUT
+        </button>
       </div>
     </aside>
   );
