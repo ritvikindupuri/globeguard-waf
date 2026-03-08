@@ -197,6 +197,60 @@ location /api/ {
         description="This is the URL that all traffic should flow through. It inspects every request against your WAF rules and AI engine."
       >
         <CopyBlock label="Proxy URL" code={proxyBase} />
+
+        <div className="mt-4 space-y-4 border-t border-border pt-4">
+          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">How to use this endpoint</h4>
+          <p className="text-xs text-muted-foreground">
+            This proxy URL acts as a <span className="text-foreground font-medium">middleman</span> between your users and your server. Instead of your app calling your backend directly, it calls this proxy URL — Deflectra inspects the request, and if it's clean, forwards it to your origin server.
+          </p>
+
+          <div className="space-y-3">
+            <div className="rounded-lg bg-muted/30 border border-border p-3">
+              <p className="text-xs font-semibold text-primary mb-1">Option A — Replace fetch() calls in your frontend</p>
+              <p className="text-[11px] text-muted-foreground">
+                In your frontend code, replace your API base URL with the proxy URL above. Append <code className="text-foreground bg-muted px-1 rounded text-[10px]">?site_id=YOUR_SITE_ID&path=/your-endpoint</code> as query parameters.
+              </p>
+              <CopyBlock 
+                label="Before (direct)" 
+                code={`fetch("https://yourserver.com/api/contact", { method: "POST", body: JSON.stringify(data) })`} 
+              />
+              <div className="my-2" />
+              <CopyBlock 
+                label="After (through Deflectra)" 
+                code={`fetch("${proxyBase}?site_id=${selectedSite || '<YOUR_SITE_ID>'}&path=/api/contact", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify(data)\n})`} 
+              />
+            </div>
+
+            <div className="rounded-lg bg-muted/30 border border-border p-3">
+              <p className="text-xs font-semibold text-primary mb-1">Option B — Deploy a Cloudflare Worker (full traffic interception)</p>
+              <p className="text-[11px] text-muted-foreground">
+                For complete protection, deploy a Cloudflare Worker that sits in front of your entire domain. Every request to your site first goes through the Worker, which forwards it to Deflectra's proxy. This means <span className="text-foreground font-medium">zero frontend code changes</span> — all traffic is automatically inspected.
+              </p>
+              <CopyBlock
+                label="Cloudflare Worker (deploy to workers.dev)"
+                code={`export default {\n  async fetch(request, env) {\n    const url = new URL(request.url);\n    const path = url.pathname + url.search;\n\n    const wafUrl = "${proxyBase}?site_id=${selectedSite || '<YOUR_SITE_ID>'}&path=" + encodeURIComponent(path);\n\n    const body = ["GET","HEAD"].includes(request.method) ? undefined : await request.text();\n\n    const res = await fetch(wafUrl, {\n      method: request.method,\n      headers: {\n        "Content-Type": request.headers.get("Content-Type") || "application/json",\n        "User-Agent": request.headers.get("User-Agent") || "unknown",\n        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "unknown",\n        "Authorization": "Bearer <YOUR_SUPABASE_ANON_KEY>",\n        "apikey": "<YOUR_SUPABASE_ANON_KEY>",\n      },\n      body,\n    });\n\n    return new Response(await res.arrayBuffer(), {\n      status: res.status,\n      headers: {\n        "Content-Type": res.headers.get("Content-Type") || "text/html",\n        "Access-Control-Allow-Origin": "*",\n      },\n    });\n  },\n};`}
+              />
+            </div>
+
+            <div className="rounded-lg bg-muted/30 border border-border p-3">
+              <p className="text-xs font-semibold text-primary mb-1">Option C — Nginx reverse proxy</p>
+              <p className="text-[11px] text-muted-foreground">
+                If you control your web server, add a proxy_pass directive that routes API requests through Deflectra before they reach your backend.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+            <p className="text-xs font-semibold text-foreground mb-1">⚡ What happens when traffic flows through:</p>
+            <ol className="list-decimal list-inside text-[11px] text-muted-foreground space-y-1">
+              <li>Request hits the proxy with your <code className="text-foreground bg-muted px-1 rounded text-[10px]">site_id</code> and target <code className="text-foreground bg-muted px-1 rounded text-[10px]">path</code></li>
+              <li>Deflectra looks up your site's origin URL from Protected Sites</li>
+              <li>Runs the request through <span className="text-foreground font-medium">JWT check → Schema validation → Rate limiting → Regex rules → AI analysis</span></li>
+              <li>If clean → forwards to your origin server and returns the response</li>
+              <li>If malicious → blocks with a branded 403 page and logs the threat to your dashboard</li>
+            </ol>
+          </div>
+        </div>
       </StepCard>
 
       {/* Step 2 */}
