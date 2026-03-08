@@ -9,7 +9,7 @@ import Index from "./pages/Index";
 import GlobePage from "./pages/GlobePage";
 import SitesPage from "./pages/SitesPage";
 import RulesPage from "./pages/RulesPage";
-import ThreatsPage from "./pages/ThreatsPage";
+
 import APIProtectionPage from "./pages/APIProtectionPage";
 import AIDetectionPage from "./pages/AIDetectionPage";
 import RateLimitingPage from "./pages/RateLimitingPage";
@@ -43,7 +43,7 @@ function ProtectedRoutes() {
         <Route path="/globe" element={<GlobePage />} />
         <Route path="/sites" element={<SitesPage />} />
         <Route path="/rules" element={<RulesPage />} />
-        <Route path="/threats" element={<ThreatsPage />} />
+        
         <Route path="/api-protection" element={<APIProtectionPage />} />
         <Route path="/ai-detection" element={<AIDetectionPage />} />
         <Route path="/rate-limiting" element={<RateLimitingPage />} />

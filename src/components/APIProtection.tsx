@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react';
+import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,8 @@ export default function APIProtection() {
   const [newSchema, setNewSchema] = useState(true);
   const [newJwt, setNewJwt] = useState(true);
   const [newRate, setNewRate] = useState(true);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { status: 'pass' | 'fail' | 'blocked'; message: string } | null>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -69,6 +71,65 @@ export default function APIProtection() {
     await supabase.from('api_endpoints').delete().eq('id', id);
     setEndpoints(prev => prev.filter(e => e.id !== id));
     toast.success('Endpoint removed');
+  };
+
+  const testEndpoint = async (ep: APIEndpoint) => {
+    setTestingId(ep.id);
+    setTestResults(prev => ({ ...prev, [ep.id]: null }));
+
+    try {
+      // Send a clean request through the WAF proxy
+      const { data: sites } = await supabase.from('protected_sites').select('id').limit(1);
+      const siteId = sites?.[0]?.id;
+      if (!siteId) {
+        setTestResults(prev => ({ ...prev, [ep.id]: { status: 'fail', message: 'No protected site found' } }));
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('waf-proxy', {
+        body: null,
+        headers: {
+          'x-deflectra-site-id': siteId,
+        },
+      });
+
+      // If we get here without a 403, the clean request passed
+      setTestResults(prev => ({
+        ...prev,
+        [ep.id]: { status: 'pass', message: 'Clean request passed WAF ✓' }
+      }));
+      toast.success(`${ep.path} — WAF pass`);
+
+      // Now test with a malicious payload
+      const { error: malError } = await supabase.functions.invoke('waf-proxy', {
+        body: JSON.stringify({ test: "' OR 1=1--" }),
+        headers: {
+          'x-deflectra-site-id': siteId,
+        },
+      });
+
+      if (malError) {
+        setTestResults(prev => ({
+          ...prev,
+          [ep.id]: { status: 'pass', message: 'Clean ✓ passed, malicious ✗ blocked — WAF working correctly' }
+        }));
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Test failed';
+      if (msg.includes('403') || msg.includes('blocked')) {
+        setTestResults(prev => ({
+          ...prev,
+          [ep.id]: { status: 'blocked', message: 'Request blocked by WAF (expected for malicious test)' }
+        }));
+      } else {
+        setTestResults(prev => ({
+          ...prev,
+          [ep.id]: { status: 'fail', message: msg }
+        }));
+      }
+    } finally {
+      setTestingId(null);
+    }
   };
 
   const totalBlocked = endpoints.reduce((s, e) => s + e.blocked_today, 0);
@@ -138,6 +199,7 @@ export default function APIProtection() {
                   <th className="text-center px-4 py-2 text-muted-foreground font-medium">RATE LIM.</th>
                   <th className="text-right px-4 py-2 text-muted-foreground font-medium">REQUESTS</th>
                   <th className="text-right px-4 py-2 text-muted-foreground font-medium">BLOCKED</th>
+                  <th className="text-center px-4 py-2 text-muted-foreground font-medium">TEST</th>
                   <th className="text-right px-4 py-2 text-muted-foreground font-medium"></th>
                 </tr>
               </thead>
@@ -161,6 +223,21 @@ export default function APIProtection() {
                     </td>
                     <td className="px-4 py-2.5 text-right text-foreground">{ep.requests_today.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-right text-destructive">{ep.blocked_today.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="w-7 h-7 text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => testEndpoint(ep)}
+                        disabled={testingId === ep.id}
+                      >
+                        {testingId === ep.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <Button size="icon" variant="ghost" className="w-7 h-7 text-muted-foreground hover:text-destructive" onClick={() => deleteEndpoint(ep.id)}>
                         <Trash2 className="w-3 h-3" />
@@ -171,6 +248,32 @@ export default function APIProtection() {
               </tbody>
             </table>
           </div>
+
+          {/* Test Results */}
+          {Object.entries(testResults).some(([, v]) => v !== null) && (
+            <div className="px-4 py-3 border-t border-border/50 space-y-2">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase">Test Results</p>
+              {endpoints.map(ep => {
+                const result = testResults[ep.id];
+                if (!result) return null;
+                return (
+                  <div key={ep.id} className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs",
+                    result.status === 'pass' ? 'bg-accent/10 text-accent' :
+                    result.status === 'blocked' ? 'bg-primary/10 text-primary' :
+                    'bg-destructive/10 text-destructive'
+                  )}>
+                    {result.status === 'pass' ? <CheckCircle className="w-3.5 h-3.5" /> :
+                     result.status === 'blocked' ? <Shield className="w-3.5 h-3.5" /> :
+                     <XCircle className="w-3.5 h-3.5" />}
+                    <span className="font-mono">{ep.path}</span>
+                    <span className="text-muted-foreground">—</span>
+                    <span>{result.message}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

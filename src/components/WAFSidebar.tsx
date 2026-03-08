@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  Globe, FileCode, AlertTriangle, Activity, 
+  Globe, FileCode, Activity, 
   Server, Settings, Zap, Brain, Lock, LogOut, BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,7 @@ const navItems = [
   { to: '/globe', icon: Globe, label: 'Threat Map' },
   { to: '/sites', icon: Server, label: 'Protected Sites' },
   { to: '/rules', icon: FileCode, label: 'Rule Engine' },
-  { to: '/threats', icon: AlertTriangle, label: 'Threat Intel' },
+  
   { to: '/api-protection', icon: Lock, label: 'API Shield' },
   { to: '/ai-detection', icon: Brain, label: 'AI Detection' },
   { to: '/rate-limiting', icon: Zap, label: 'Rate Limiting' },
