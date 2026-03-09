@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2, Play, Loader2, Sparkles } from 'lucide-react';
+import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2, Play, Loader2, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,19 @@ interface AIGeneratedFields {
   path?: boolean;
 }
 
+interface TestResult {
+  name: string;
+  status: 'pass' | 'blocked' | 'fail';
+  method: string;
+  path: string;
+  httpStatus: number | null;
+  severity: string;
+  action: string;
+  reason: string;
+  sourceIp: string;
+  responseSnippet: string;
+}
+
 const METHOD_STYLES: Record<string, string> = {
   GET: 'bg-primary/10 text-primary border-primary/30',
   POST: 'bg-accent/10 text-accent border-accent/30',
@@ -52,8 +65,8 @@ export default function APIProtection() {
   const [newJwt, setNewJwt] = useState(true);
   const [newRate, setNewRate] = useState(true);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { status: 'pass' | 'fail' | 'blocked'; message: string } | null>>({});
-  
+  const [testResults, setTestResults] = useState<Record<string, TestResult[]>>({});
+  const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
   // AI generation state
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
@@ -174,13 +187,13 @@ export default function APIProtection() {
 
   const testEndpoint = async (ep: APIEndpoint) => {
     setTestingId(ep.id);
-    setTestResults(prev => ({ ...prev, [ep.id]: null }));
+    setTestResults(prev => ({ ...prev, [ep.id]: [] }));
 
     try {
       const { data: sitesData } = await supabase.from('protected_sites').select('id, url').limit(1);
       const site = sitesData?.[0];
       if (!site) {
-        setTestResults(prev => ({ ...prev, [ep.id]: { status: 'fail', message: 'No protected site found' } }));
+        setTestResults(prev => ({ ...prev, [ep.id]: [{ name: 'Setup', status: 'fail', method: '-', path: '-', httpStatus: null, severity: 'low', action: 'error', reason: 'No protected site found', sourceIp: '-', responseSnippet: '' }] }));
         return;
       }
 
@@ -190,124 +203,102 @@ export default function APIProtection() {
       const userToken = sessionData?.session?.access_token || anonKey;
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
-      const results: string[] = [];
+      const results: TestResult[] = [];
 
-      // Test 1: Clean request (should pass)
+      const parseWafResponse = (text: string, status: number): Partial<TestResult> => {
+        // Try to extract details from block page HTML
+        const reasonMatch = text.match(/detail-value">([^<]+)<\/span>\s*<\/div>\s*<div class="detail-row"><span class="detail-label">Rule/);
+        const ruleMatch = text.match(/detail-label">Rule<\/span><span class="detail-value">([^<]+)/);
+        const ipMatch = text.match(/detail-label">Your IP<\/span><span class="detail-value">([^<]+)/);
+        const pathMatch = text.match(/detail-label">Path<\/span><span class="detail-value">([^<]+)/);
+        const severityMatch = text.match(/badge\s+(critical|high|medium|low)/);
+        
+        return {
+          httpStatus: status,
+          severity: severityMatch?.[1] || (status === 403 ? 'high' : 'low'),
+          action: status === 403 ? 'blocked' : 'allowed',
+          reason: reasonMatch?.[1] || ruleMatch?.[1] || (status === 403 ? 'Blocked by WAF' : 'Passed through'),
+          sourceIp: ipMatch?.[1] || '-',
+          responseSnippet: text.substring(0, 500),
+        };
+      };
+
+      // Test 1: Clean request
       try {
         const cleanRes = await fetch(
           `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-          {
-            method: ep.method,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-              'apikey': anonKey,
-            },
+          { method: ep.method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
             ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
           }
         );
-        await cleanRes.text();
-        if (cleanRes.status !== 403) {
-          results.push('Clean request ✓ passed');
-        } else {
-          results.push('Clean request ✗ blocked (check JWT settings)');
-        }
-      } catch {
-        results.push('Clean request ✗ network error');
-      }
+        const text = await cleanRes.text();
+        const parsed = parseWafResponse(text, cleanRes.status);
+        results.push({ name: 'Clean Request', status: cleanRes.status !== 403 ? 'pass' : 'blocked', method: ep.method, path: ep.path, ...parsed } as TestResult);
+      } catch { results.push({ name: 'Clean Request', status: 'fail', method: ep.method, path: ep.path, httpStatus: null, severity: 'low', action: 'error', reason: 'Network error', sourceIp: '-', responseSnippet: '' }); }
 
-      // Test 2: SQLi payload (should be blocked)
+      // Test 2: SQLi payload
+      const sqliPath = ep.path + "?id=1' OR '1'='1";
       try {
         const sqliRes = await fetch(
-          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path + "?id=1' OR '1'='1")}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-              'apikey': anonKey,
-            },
+          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(sqliPath)}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
             body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
           }
         );
-        await sqliRes.text();
-        if (sqliRes.status === 403) {
-          results.push('SQLi attack ✗ blocked');
-        } else {
-          results.push('SQLi attack ✓ passed (not caught)');
-        }
-      } catch {
-        results.push('SQLi attack ✗ blocked');
-      }
+        const text = await sqliRes.text();
+        const parsed = parseWafResponse(text, sqliRes.status);
+        results.push({ name: 'SQL Injection Attack', status: sqliRes.status === 403 ? 'blocked' : 'pass', method: 'POST', path: sqliPath, ...parsed } as TestResult);
+      } catch { results.push({ name: 'SQL Injection Attack', status: 'blocked', method: 'POST', path: sqliPath, httpStatus: null, severity: 'critical', action: 'blocked', reason: 'Request blocked (connection refused)', sourceIp: '-', responseSnippet: '' }); }
 
-      // Test 3: JWT inspection (if enabled — send request without token)
+      // Test 3: No JWT
       if (ep.jwt_inspection) {
         try {
           const noJwtRes = await fetch(
             `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-            {
-              method: ep.method,
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': anonKey,
-              },
+            { method: ep.method, headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
               ...(ep.method === 'POST' ? { body: JSON.stringify({ test: true }) } : {}),
             }
           );
-          await noJwtRes.text();
-          if (noJwtRes.status === 403) {
-            results.push('No-JWT request ✗ blocked');
-          } else {
-            results.push('No-JWT request ✓ passed (JWT not enforced)');
-          }
-        } catch {
-          results.push('No-JWT request ✗ blocked');
-        }
+          const text = await noJwtRes.text();
+          const parsed = parseWafResponse(text, noJwtRes.status);
+          results.push({ name: 'Missing JWT Token', status: noJwtRes.status === 403 ? 'blocked' : 'pass', method: ep.method, path: ep.path, ...parsed } as TestResult);
+        } catch { results.push({ name: 'Missing JWT Token', status: 'blocked', method: ep.method, path: ep.path, httpStatus: null, severity: 'high', action: 'blocked', reason: 'No JWT provided', sourceIp: '-', responseSnippet: '' }); }
       }
 
-      // Test 4: Schema validation (if enabled — send malformed body)
+      // Test 4: Bad JSON
       if (ep.schema_validation && ep.method === 'POST') {
         try {
-          const badBodyRes = await fetch(
+          const badRes = await fetch(
             `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${userToken}`,
-                'apikey': anonKey,
-              },
+            { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
               body: 'this is not json{{{',
             }
           );
-          await badBodyRes.text();
-          if (badBodyRes.status === 403) {
-            results.push('Bad JSON ✗ blocked');
-          } else {
-            results.push('Bad JSON ✓ passed (schema not enforced)');
-          }
-        } catch {
-          results.push('Bad JSON ✗ blocked');
-        }
+          const text = await badRes.text();
+          const parsed = parseWafResponse(text, badRes.status);
+          results.push({ name: 'Malformed JSON Body', status: badRes.status === 403 ? 'blocked' : 'pass', method: 'POST', path: ep.path, ...parsed } as TestResult);
+        } catch { results.push({ name: 'Malformed JSON Body', status: 'blocked', method: 'POST', path: ep.path, httpStatus: null, severity: 'medium', action: 'blocked', reason: 'Invalid JSON rejected', sourceIp: '-', responseSnippet: '' }); }
       }
 
-      const allPassed = results.every(r => r.includes('✓ passed') || r.includes('✗ blocked'));
-      setTestResults(prev => ({
-        ...prev,
-        [ep.id]: {
-          status: allPassed ? 'pass' : 'fail',
-          message: results.join(' • ')
-        }
-      }));
+      setTestResults(prev => ({ ...prev, [ep.id]: results }));
       toast.success(`${ep.path} — ${results.length} tests completed`);
     } catch (err: any) {
-      setTestResults(prev => ({
-        ...prev,
-        [ep.id]: { status: 'fail', message: err?.message || 'Test failed' }
-      }));
+      setTestResults(prev => ({ ...prev, [ep.id]: [{ name: 'Error', status: 'fail', method: '-', path: ep.path, httpStatus: null, severity: 'low', action: 'error', reason: err?.message || 'Test failed', sourceIp: '-', responseSnippet: '' }] }));
     } finally {
       setTestingId(null);
     }
+  };
+
+  const severityColor = (s: string) => {
+    return s === 'critical' ? 'text-threat-critical' : s === 'high' ? 'text-threat-high' : s === 'medium' ? 'text-threat-medium' : 'text-threat-low';
+  };
+
+  const workerDomain = typeof window !== 'undefined' ? localStorage.getItem('deflectra_worker_domain') || '' : '';
+  const buildBlockPageUrl = (path: string) => {
+    const base = workerDomain.trim().replace(/\/$/, '');
+    if (!base) return null;
+    const cleanPath = path?.startsWith('/') ? path : `/${path || ''}`;
+    return `${base.startsWith('http') ? base : `https://${base}`}${cleanPath}`;
   };
 
   const totalBlocked = endpoints.reduce((s, e) => s + e.blocked_today, 0);
@@ -536,29 +527,144 @@ export default function APIProtection() {
             </table>
           </div>
 
-          {/* Test Results */}
-          {Object.entries(testResults).some(([, v]) => v !== null) && (
-            <div className="px-4 py-3 border-t border-border/50 space-y-2">
-              <p className="text-[10px] font-mono text-muted-foreground uppercase">Test Results</p>
-              {endpoints.map(ep => {
-                const result = testResults[ep.id];
-                if (!result) return null;
-                return (
-                  <div key={ep.id} className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs",
-                    result.status === 'pass' ? 'bg-accent/10 text-accent' :
-                    result.status === 'blocked' ? 'bg-primary/10 text-primary' :
-                    'bg-destructive/10 text-destructive'
-                  )}>
-                    {result.status === 'pass' ? <CheckCircle className="w-3.5 h-3.5" /> :
-                     result.status === 'blocked' ? <Shield className="w-3.5 h-3.5" /> :
-                     <XCircle className="w-3.5 h-3.5" />}
-                    <span className="font-mono">{ep.path}</span>
-                    <span className="text-muted-foreground">—</span>
-                    <span>{result.message}</span>
-                  </div>
-                );
-              })}
+          {/* Detailed Test Results */}
+          {Object.entries(testResults).some(([, v]) => v.length > 0) && (
+            <div className="border-t border-border/50">
+              <div className="px-5 py-3 border-b border-border/30">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Test Results</p>
+              </div>
+              <div className="divide-y divide-border/30">
+                {endpoints.map(ep => {
+                  const results = testResults[ep.id];
+                  if (!results || results.length === 0) return null;
+                  return results.map((r, idx) => {
+                    const testKey = `${ep.id}-${idx}`;
+                    const isExpanded = expandedTestId === testKey;
+                    const blockUrl = r.action === 'blocked' ? buildBlockPageUrl(r.path) : null;
+                    return (
+                      <div key={testKey} className="transition-colors">
+                        <button
+                          onClick={() => setExpandedTestId(isExpanded ? null : testKey)}
+                          className="w-full px-5 py-3 hover:bg-secondary/20 transition-colors text-left"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                {r.status === 'blocked' ? (
+                                  <Shield className={cn("w-3.5 h-3.5 shrink-0", severityColor(r.severity))} />
+                                ) : r.status === 'pass' ? (
+                                  <CheckCircle className="w-3.5 h-3.5 shrink-0 text-accent" />
+                                ) : (
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-destructive" />
+                                )}
+                                <span className="text-sm font-semibold text-foreground">{r.name}</span>
+                                <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded border", 
+                                  METHOD_STYLES[r.method] || 'bg-secondary/50 border-border text-muted-foreground'
+                                )}>{r.method}</span>
+                                <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[200px]">{r.path}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 ml-5 line-clamp-1">{r.reason}</p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
+                              <span className={cn("text-[10px] font-bold font-mono uppercase px-2 py-0.5 rounded",
+                                r.action === 'blocked' ? 'bg-destructive/10 text-destructive' :
+                                r.action === 'allowed' ? 'bg-accent/10 text-accent' :
+                                'bg-secondary/50 text-muted-foreground'
+                              )}>{r.action}</span>
+                              {r.httpStatus && (
+                                <span className="text-xs font-mono text-muted-foreground">{r.httpStatus}</span>
+                              )}
+                              {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                            </div>
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-5 pb-4 space-y-3 bg-secondary/10 border-t border-border/30">
+                            <div className="pt-3">
+                              <p className="text-[10px] font-mono text-muted-foreground mb-1.5">WAF ANALYSIS</p>
+                              <p className="text-xs text-foreground leading-relaxed">{r.reason}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">METHOD</p>
+                                <p className="text-xs font-mono text-foreground">{r.method}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">PATH</p>
+                                <p className="text-xs font-mono text-foreground break-all">{r.path}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">SOURCE IP</p>
+                                <p className="text-xs font-mono text-foreground">{r.sourceIp}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">HTTP STATUS</p>
+                                <p className="text-xs font-mono text-foreground">{r.httpStatus || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">SEVERITY</p>
+                                <p className={cn("text-xs font-mono font-bold uppercase", severityColor(r.severity))}>{r.severity}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">ACTION</p>
+                                <p className="text-xs font-mono text-foreground uppercase">{r.action}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">TEST NAME</p>
+                                <p className="text-xs font-mono text-foreground">{r.name}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">RESULT</p>
+                                <p className={cn("text-xs font-mono font-bold uppercase",
+                                  r.status === 'blocked' ? 'text-primary' : r.status === 'pass' ? 'text-accent' : 'text-destructive'
+                                )}>{r.status === 'blocked' ? 'CORRECTLY BLOCKED' : r.status === 'pass' ? 'PASSED' : 'FAILED'}</p>
+                              </div>
+                            </div>
+
+                            {/* Block Page URL */}
+                            {(() => {
+                              if (r.action !== 'blocked') {
+                                return (
+                                  <div className="bg-secondary/30 rounded-lg p-3 border border-border/30">
+                                    <p className="text-[10px] font-mono text-muted-foreground mb-1">BLOCK PAGE</p>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                      <span className="font-semibold text-foreground">No block page generated.</span>{' '}
+                                      This request was {r.action === 'allowed' ? 'allowed through — the WAF did not detect a threat severe enough to block it.' : `marked as "${r.action}" which does not trigger a block page.`}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              if (!blockUrl) {
+                                return <p className="text-[10px] text-muted-foreground italic">Set your Cloudflare Worker domain in AI Detection to generate block page links.</p>;
+                              }
+                              return (
+                                <div>
+                                  <p className="text-[10px] font-mono text-muted-foreground mb-1">VIEW BLOCK PAGE</p>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                                      {blockUrl}
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                      onClick={() => { navigator.clipboard.writeText(blockUrl); toast.success('URL copied'); }}>
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                      onClick={() => window.open(blockUrl, '_blank')}>
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })}
+              </div>
             </div>
           )}
         </div>
