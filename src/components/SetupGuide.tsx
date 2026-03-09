@@ -51,6 +51,7 @@ export default function SetupGuide() {
   const [selectedSite, setSelectedSite] = useState<string>('');
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'your-project-id';
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '<YOUR_ANON_KEY>';
   const proxyBase = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
   useEffect(() => {
@@ -228,7 +229,7 @@ location /api/ {
               </p>
               <CopyBlock
                 label="Cloudflare Worker (deploy to workers.dev)"
-                code={`export default {\n  async fetch(request, env) {\n    const url = new URL(request.url);\n    const path = url.pathname + url.search;\n\n    const wafUrl = "${proxyBase}?site_id=${selectedSite || '<YOUR_SITE_ID>'}&path=" + encodeURIComponent(path);\n\n    const body = ["GET","HEAD"].includes(request.method) ? undefined : await request.text();\n\n    const res = await fetch(wafUrl, {\n      method: request.method,\n      headers: {\n        "Content-Type": request.headers.get("Content-Type") || "application/json",\n        "User-Agent": request.headers.get("User-Agent") || "unknown",\n        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "unknown",\n        "Authorization": "Bearer <YOUR_SUPABASE_ANON_KEY>",\n        "apikey": "<YOUR_SUPABASE_ANON_KEY>",\n      },\n      body,\n    });\n\n    return new Response(await res.arrayBuffer(), {\n      status: res.status,\n      headers: {\n        "Content-Type": res.headers.get("Content-Type") || "text/html",\n        "Access-Control-Allow-Origin": "*",\n      },\n    });\n  },\n};`}
+                code={`export default {\n  async fetch(request, env) {\n    const url = new URL(request.url);\n    const path = url.pathname + url.search;\n\n    const wafUrl = "${proxyBase}?site_id=${selectedSite || '<YOUR_SITE_ID>'}&path=" + encodeURIComponent(path);\n\n    const body = ["GET","HEAD"].includes(request.method) ? undefined : await request.text();\n\n    const res = await fetch(wafUrl, {\n      method: request.method,\n      headers: {\n        "Content-Type": request.headers.get("Content-Type") || "application/json",\n        "User-Agent": request.headers.get("User-Agent") || "unknown",\n        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "unknown",\n        "Authorization": "Bearer ${anonKey}",\n        "apikey": "${anonKey}",\n      },\n      body,\n    });\n\n    const responseBody = await res.arrayBuffer();\n    const contentType = res.headers.get("Content-Type") || "";\n\n    // If it's a block page (403 with HTML), ensure Content-Type is set correctly\n    const finalContentType = (res.status === 403 && !contentType.includes("text/html"))\n      ? "text/html; charset=utf-8"\n      : contentType;\n\n    return new Response(responseBody, {\n      status: res.status,\n      headers: {\n        "Content-Type": finalContentType || "text/html",\n        "Access-Control-Allow-Origin": "*",\n      },\n    });\n  },\n};`}
               />
               <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
                 <p className="text-xs font-semibold text-foreground mb-1">🛡️ Test the Block Page</p>
