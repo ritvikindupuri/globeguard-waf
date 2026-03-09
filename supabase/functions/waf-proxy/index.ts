@@ -242,6 +242,8 @@ serve(async (req) => {
       }
     }
 
+    } // end apiProtectionEnabled
+
     // ──────────────────────────────────────────────
     // 2. RATE LIMITING: Per-IP request counting
     // ──────────────────────────────────────────────
