@@ -247,7 +247,7 @@ serve(async (req) => {
     // ──────────────────────────────────────────────
     // 2. RATE LIMITING: Per-IP request counting
     // ──────────────────────────────────────────────
-    if (!blocked) {
+    if (!blocked && rateLimitingEnabled) {
       const { data: rateLimitRules } = await supabase
         .from("rate_limit_rules")
         .select("*")
