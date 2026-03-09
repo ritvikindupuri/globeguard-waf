@@ -16,6 +16,7 @@ import RateLimitingPage from "./pages/RateLimitingPage";
 import SettingsPage from "./pages/SettingsPage";
 import SetupGuidePage from "./pages/SetupGuidePage";
 import AuthPage from "./pages/AuthPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

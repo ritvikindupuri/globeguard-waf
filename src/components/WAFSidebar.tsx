@@ -83,7 +83,12 @@ export default function WAFSidebar() {
                 "w-4 h-4 transition-colors",
                 isActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-white"
               )} />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium flex-1">{item.label}</span>
+              {(item as any).hasBadge && unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </NavLink>
           );
         })}
