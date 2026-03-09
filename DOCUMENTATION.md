@@ -616,17 +616,17 @@ flowchart LR
 
 <p align="center"><em>Figure 1: API Shield Test Pipeline — The four automated tests run for each endpoint when the test button is clicked.</em></p>
 
-<p align="center">
-  <img src="https://i.imgur.com/d7CoNhN.png" alt="API Shield Dashboard" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: API Shield Dashboard — Protected endpoints with JWT, schema, and rate limiting toggles, inline test results showing blocked SQL injection and missing JWT token attacks with full WAF analysis metadata.</em></p>
-
 Each test sends a real request through the `waf-proxy` edge function and checks if it passes or gets blocked:
 1. **Clean Request** — Should pass (validates WAF doesn't false-positive)
 2. **SQLi Attack** — Should be blocked (validates rule engine works)
 3. **No-JWT Request** — Should be blocked if JWT inspection is enabled
 4. **Malformed JSON** — Should be blocked if schema validation is enabled
+
+<p align="center">
+  <img src="https://i.imgur.com/d7CoNhN.png" alt="API Shield Dashboard" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: API Shield Dashboard — Protected endpoints with JWT, schema, and rate limiting toggles, inline test results showing blocked SQL injection and missing JWT token attacks with full WAF analysis metadata.</em></p>
 
 ---
 
