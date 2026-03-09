@@ -31,7 +31,8 @@
 21. [AI Auto-Fill Configuration](#ai-auto-fill-configuration)
 22. [Security Controls & RLS Policies](#security-controls--rls-policies)
 23. [Attack Detection — In-Depth](#attack-detection--in-depth)
-24. [Conclusion](#conclusion)
+24. [Future Integrations & Improvements](#future-integrations--improvements)
+25. [Conclusion](#conclusion)
 
 ---
 
