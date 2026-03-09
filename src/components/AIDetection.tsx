@@ -287,7 +287,8 @@ export default function AIDetection() {
                 '/.env',
                 '/api/config/secrets',
               ].map(testPath => {
-                const fullUrl = `${workerDomain.startsWith('http') ? workerDomain.replace(/\/$/, '') : `https://${workerDomain.replace(/\/$/, '')}`}${testPath}`;
+                const displayUrl = `${workerDomain.replace(/\/$/, '').replace(/^https?:\/\//, '')}${testPath}`;
+                const fullUrl = `https://${displayUrl}`;
                 return (
                   <div key={testPath} className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono text-foreground truncate flex-1">{fullUrl}</span>
