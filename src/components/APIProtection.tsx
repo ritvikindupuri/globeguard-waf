@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2, Play, Loader2, Sparkles } from 'lucide-react';
+import { Lock, FileJson, Key, Shield, CheckCircle, XCircle, Plus, Trash2, Play, Loader2, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
