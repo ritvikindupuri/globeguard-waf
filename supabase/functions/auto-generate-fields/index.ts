@@ -563,6 +563,35 @@ function buildFieldTool(context: string, field: string): any {
   const fieldName = `generate_${field.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
   
   switch (context) {
+    case "custom_attack":
+      return {
+        type: "function",
+        function: {
+          name: "generate_custom_attack",
+          description: "Generate a single realistic attack scenario based on the user's description and crawl data",
+          parameters: {
+            type: "object",
+            properties: {
+              scenario: {
+                type: "object",
+                properties: {
+                  path: { type: "string", description: "Attack request path" },
+                  method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE"] },
+                  body: { type: "string", description: "Request body with attack payload (empty string if GET)" },
+                  user_agent: { type: "string", description: "Attacker user agent string" },
+                  attack_name: { type: "string", description: "Short name for this attack" },
+                  explanation: { type: "string", description: "Why this attack targets the specific app" },
+                },
+                required: ["path", "method", "body", "user_agent", "attack_name", "explanation"],
+                additionalProperties: false,
+              },
+            },
+            required: ["scenario"],
+            additionalProperties: false,
+          },
+        },
+      };
+
     case "ai_detection":
       if (field === "path") {
         return {
