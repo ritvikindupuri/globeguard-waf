@@ -160,6 +160,7 @@ serve(async (req) => {
     // ──────────────────────────────────────────────
     // 1. API SHIELD: Check endpoint-specific protections
     // ──────────────────────────────────────────────
+    if (apiProtectionEnabled) {
     const { data: apiEndpoints } = await supabase
       .from("api_endpoints")
       .select("*")
