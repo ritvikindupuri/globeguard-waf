@@ -320,6 +320,19 @@ For each scenario:
 
 IMPORTANT: If Supabase/functions/v1 endpoints were detected, include attacks targeting those. If React was detected, include XSS attacks targeting React patterns.`;
 
+    case "custom_attack":
+      return `${intelSummary}
+
+The user wants to simulate a SPECIFIC type of attack: "${field}"
+
+Based on the REAL crawl data above and the user's requested attack type, generate a SINGLE highly realistic attack scenario that:
+1. Targets actual endpoints/patterns discovered on THIS specific app
+2. Uses the exact attack technique the user described
+3. Crafts a convincing, realistic payload that would test the WAF's detection
+4. Includes appropriate HTTP method, path, body, and user agent for this attack type
+
+Be creative and realistic. This is for security testing — make the attack scenario as realistic as possible so the WAF can be properly tested.`;
+
     case "rate_limiting":
       return `${intelSummary}
 
