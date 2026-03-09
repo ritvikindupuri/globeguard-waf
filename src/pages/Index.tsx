@@ -56,7 +56,7 @@ const Index = () => {
         <StatCard icon={Globe} title="Attack Sources" value={stats.countries.toString()} change="Countries" changeType="neutral" variant="default" />
         <StatCard icon={Zap} title="Avg Response" value="—" change="Proxy mode" changeType="neutral" variant="accent" />
         <StatCard icon={Server} title="Protected Sites" value={stats.protectedSites.toString()} change="Active" changeType="neutral" variant="primary" />
-        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="v3 Flash" changeType="positive" variant="accent" />
+        <StatCard icon={Brain} title="AI Engine" value="Gemini" change="3.1 Pro" changeType="positive" variant="accent" />
       </div>
 
       {/* Globe + Chart */}

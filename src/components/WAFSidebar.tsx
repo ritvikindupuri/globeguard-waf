@@ -79,7 +79,7 @@ export default function WAFSidebar() {
           </div>
           <div className="flex justify-between">
             <span className="text-sidebar-foreground/60">AI ENGINE</span>
-            <span className="text-sidebar-primary">GEMINI 3</span>
+            <span className="text-sidebar-primary">GEMINI 3.1 PRO</span>
           </div>
         </div>
         <button

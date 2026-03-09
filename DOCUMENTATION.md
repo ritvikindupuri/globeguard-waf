@@ -43,7 +43,7 @@ Deflectra is a fully functional, AI-powered Web Application Firewall (WAF) built
 Unlike traditional WAFs that rely solely on static regex rules, Deflectra combines three layers of defense:
 
 1. **Regex-Based Rule Engine** — Pattern matching against known attack signatures (SQLi, XSS, LFI, RCE) with configurable priority ordering.
-2. **AI Threat Classification** — Google Gemini 3 Flash analyzes requests in real-time and classifies them as safe or malicious with confidence scores and geographic origin estimation.
+2. **AI Threat Classification** — Google Gemini 3.1 Pro analyzes requests in real-time and classifies them as safe or malicious with confidence scores and geographic origin estimation.
 3. **API Shield Enforcement** — JWT token validation, JSON schema validation, and per-IP rate limiting enforced at the proxy layer.
 
 Deflectra was originally built to protect the developer's personal portfolio website ([https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/)), where it actively inspects all API calls to edge functions (chatbot, contact form, authentication logging, visitor alerts). However, **anyone can create an account** on Deflectra and connect their own web applications for WAF protection.
@@ -56,7 +56,7 @@ The application features a full management dashboard with a 3D Mapbox threat glo
 |--------|-------|
 | Protected Sites | Unlimited per user |
 | Rule Engine | Regex with priority ordering |
-| AI Model | Google Gemini 3 Flash |
+| AI Model | Google Gemini 3.1 Pro |
 | Rate Limiting | Per-IP, per-path, configurable windows |
 | JWT Validation | Decode + expiry check |
 | Schema Validation | JSON structure + size limits |
@@ -113,7 +113,7 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        GEMINI[Google Gemini 3 Flash]
+        GEMINI[Google Gemini 3.1 Pro]
         MAPBOX[Mapbox GL]
         RESEND[Resend Email API]
         ORIGIN[Origin Server]
@@ -154,7 +154,7 @@ The frontend is built with React 18, Vite, TypeScript, and Tailwind CSS. It uses
 The backend is powered by Supabase (PostgreSQL + Edge Functions + Realtime). The `waf-proxy` edge function is the core of the WAF — it receives all proxied requests and runs them through the inspection pipeline. Four edge functions handle different aspects of the system.
 
 **External Services:**
-- **Google Gemini 3 Flash** — AI threat classification via the Lovable AI Gateway
+- **Google Gemini 3.1 Pro** — AI threat classification via the Lovable AI Gateway
 - **Mapbox GL** — 3D globe rendering for geographic threat visualization
 - **Resend** — Email delivery for threat alerts and test notifications
 
@@ -188,7 +188,7 @@ The main dashboard (`/`) provides a real-time overview of the WAF's status with 
 | Attack Sources | Unique `source_country` values in `threat_logs` | Number of countries attacks originated from |
 | Avg Response | — | Placeholder for proxy latency (future feature) |
 | Protected Sites | `protected_sites` count | Number of registered origin servers |
-| AI Engine | Static | Shows "Gemini v3 Flash" indicator |
+| AI Engine | Static | Shows "Gemini 3.1 Pro" indicator |
 
 Below the stats, the dashboard displays:
 - **Live Threat Map** — A 3D Mapbox globe showing threat locations
@@ -267,7 +267,7 @@ sequenceDiagram
 
     U->>UI: Click AI Auto-Setup
     UI->>EF: invoke with site URL
-    EF->>AI: Analyze site tech stack
+    EF->>AI: Analyze site tech stack (Gemini 3.1 Pro)
     AI-->>EF: Recommended rules
     EF->>DB: Insert WAF rules
     EF-->>UI: Setup complete
@@ -350,11 +350,13 @@ Loads all enabled rules from `waf_rules` ordered by priority:
 - Rules are processed in priority order (lower number = higher priority)
 
 **Stage 7 — AI Analysis:**
-If no rule matched, the request is sent to Google Gemini 3 Flash for classification:
-- Sends method, path, body (first 500 chars), user-agent, and IP
-- Uses structured tool calling to get a JSON response with: `is_threat`, `threat_type`, `severity`, `confidence`, `reason`, `source_lat`, `source_lng`, `source_country`
-- If the AI classifies the request as a threat with action "blocked", it's rejected
-- Geographic coordinates are used for threat map visualization
+If no regex rule matched, the request is sent to **Google Gemini 3.1 Pro** for deep threat classification:
+- The AI receives the full request context: method, path, body (first 500 chars), user-agent, and source IP
+- Uses structured **tool calling** to guarantee a parseable JSON response containing: `is_threat`, `threat_type`, `severity`, `confidence`, `reason`, `source_lat`, `source_lng`, `source_country`
+- The AI evaluates for 10+ threat categories: SQLi, XSS, RCE, LFI, bot abuse, rate abuse, credential stuffing, API abuse, CSRF, and malformed requests
+- Returns a confidence score (0-100%) and a human-readable explanation of why the request was flagged or allowed
+- If classified as a threat with action "blocked", the request is rejected
+- Geographic coordinates from the AI response are used for threat map visualization
 
 **Stage 8 — Logging & Response:**
 - All threats (blocked or logged) are recorded in `threat_logs` with full request metadata
@@ -400,6 +402,85 @@ The Rule Engine (`/rules`) provides a CRUD interface for managing regex-based WA
 
 The AI Detection page (`/ai-detection`) provides a sandbox for testing how Deflectra's AI classifies requests, plus a view of recent AI detections.
 
+### How AI Threat Detection Works
+
+Deflectra's AI threat detection is powered by **Google Gemini 3.1 Pro** via the Lovable AI Gateway. Here's the complete flow:
+
+```mermaid
+flowchart TD
+    REQ[Incoming Request] --> REGEX{Regex Rules Match?}
+    REGEX -->|Yes| BLOCK_RULE[Block by Rule]
+    REGEX -->|No| AI_PREP[Prepare AI Context]
+    AI_PREP --> AI_CALL[Call Gemini 3.1 Pro]
+    
+    subgraph AI_ANALYSIS["AI Analysis Engine"]
+        AI_CALL --> EXTRACT[Extract Request Features]
+        EXTRACT --> PATTERNS[Pattern Recognition]
+        PATTERNS --> CLASSIFY[Threat Classification]
+        CLASSIFY --> SCORE[Confidence Scoring]
+    end
+    
+    SCORE --> DECISION{is_threat?}
+    DECISION -->|Yes + blocked| BLOCK_AI[Block by AI]
+    DECISION -->|Yes + logged| LOG_ONLY[Log & Allow]
+    DECISION -->|No| ALLOW[Forward to Origin]
+    
+    BLOCK_AI --> THREAT_LOG[(threat_logs)]
+    LOG_ONLY --> THREAT_LOG
+    THREAT_LOG --> REALTIME[Push to Dashboard]
+```
+
+<p align="center"><em>Figure: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
+
+#### Step-by-Step AI Analysis:
+
+1. **Context Preparation** — The WAF prepares a structured payload containing:
+   - HTTP method (GET, POST, PUT, DELETE)
+   - Request path and query parameters
+   - Request body (first 500 characters for performance)
+   - User-Agent header
+   - Source IP address
+
+2. **AI Model Invocation** — The payload is sent to Google Gemini 3.1 Pro via the Lovable AI Gateway with:
+   - A detailed system prompt defining DEFLECTRA's role as a WAF analyzer
+   - Instructions for detecting 10+ threat categories
+   - Structured tool calling to guarantee parseable JSON output
+
+3. **Threat Categories Detected**:
+   | Category | Code | Description |
+   |----------|------|-------------|
+   | SQL Injection | `sqli` | Database query manipulation attempts |
+   | Cross-Site Scripting | `xss` | Script injection in parameters/body |
+   | Remote Code Execution | `rce` | Command injection attempts |
+   | Local File Inclusion | `lfi` | Path traversal attacks (../../etc/passwd) |
+   | Bot/Crawler Abuse | `bot` | Automated scraping or reconnaissance |
+   | Rate Abuse | `rate_abuse` | Rapid-fire request patterns |
+   | Credential Stuffing | `credential_stuffing` | Brute-force login attempts |
+   | API Abuse | `api_abuse` | Malformed or excessive API usage |
+   | CSRF Attempts | `csrf` | Cross-site request forgery patterns |
+   | Malformed Requests | `malformed` | Invalid or corrupted HTTP structures |
+
+4. **AI Response Structure** — The AI returns:
+   ```json
+   {
+     "is_threat": true,
+     "threat_type": "sqli",
+     "severity": "critical",
+     "action": "blocked",
+     "confidence": 95,
+     "explanation": "Request contains SQL injection pattern: OR 1=1 in query parameter",
+     "indicators": ["OR 1=1", "UNION SELECT", "comment injection --"]
+   }
+   ```
+
+5. **Confidence Score Interpretation**:
+   - **90-100%** — Almost certainly an attack, auto-blocked
+   - **60-89%** — Likely malicious, blocked or challenged based on settings
+   - **30-59%** — Suspicious, may be logged for review (potential false positive)
+   - **0-29%** — Probably safe, allowed through
+
+6. **Logging & Visualization** — Threats are logged to `threat_logs` with full metadata including AI-estimated geographic coordinates for the 3D threat globe.
+
 ### Simulate Incoming Request
 
 Users can craft test requests with:
@@ -410,7 +491,7 @@ Users can craft test requests with:
 - **User Agent** — Optional
 - **Request Body** — Optional JSON payload
 
-The test request is sent to the `analyze-threat` edge function, which calls Gemini 3 Flash to classify it. Results show:
+The test request is sent to the `analyze-threat` edge function, which calls Gemini 3.1 Pro to classify it. Results show:
 - **Verdict** — BLOCKED or ALLOWED
 - **Threat Type** — SQLi, XSS, Path Traversal, etc.
 - **Confidence** — 0-100% score

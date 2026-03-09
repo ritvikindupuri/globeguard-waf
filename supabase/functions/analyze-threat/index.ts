@@ -51,7 +51,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-3.1-pro-preview",
         messages: [
           {
             role: "system",
@@ -164,8 +164,8 @@ If it contains any suspicious patterns, classify appropriately.`
     return new Response(JSON.stringify({
       analysis,
       logged: analysis.is_threat,
-      model: "google/gemini-3-flash-preview",
-      engine: "DEFLECTRA AI v3.0",
+      model: "google/gemini-3.1-pro-preview",
+      engine: "DEFLECTRA AI v3.1 Pro",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
