@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles } from 'lucide-react';
+import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,10 @@ export default function AIDetection() {
   // AI generation state
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
+  
+  // Custom attack simulation
+  const [customAttackInput, setCustomAttackInput] = useState('');
+  const [runningCustomAttack, setRunningCustomAttack] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -129,6 +133,64 @@ export default function AIDetection() {
     }
   };
 
+  const runCustomAttack = async () => {
+    if (!selectedSite) { toast.error('Select a protected site first'); return; }
+    if (!customAttackInput.trim()) { toast.error('Describe the attack you want to simulate'); return; }
+
+    setRunningCustomAttack(true);
+    setLastResult(null);
+
+    try {
+      // Step 1: Generate attack scenario from user's description
+      const { data: genData, error: genError } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'custom_attack', field: customAttackInput.trim() },
+      });
+
+      if (genError) throw genError;
+      if (!genData?.success || !genData?.data?.scenario) throw new Error('AI failed to generate attack scenario');
+
+      const scenario = genData.data.scenario;
+      
+      // Auto-fill the form fields
+      setIncomingPath(scenario.path || '');
+      setIncomingMethod(scenario.method || 'GET');
+      setIncomingBody(scenario.body || '');
+      setIncomingUserAgent(scenario.user_agent || '');
+      setAiGeneratedFields({ path: true, method: true, body: true, user_agent: true });
+
+      toast.info(`Generated: ${scenario.attack_name}`, { description: scenario.explanation });
+
+      // Step 2: Automatically run the analysis
+      const fullUrl = `${selectedSite.url}${(scenario.path || '/').startsWith('/') ? '' : '/'}${scenario.path || '/'}`;
+      const { data, error } = await supabase.functions.invoke('analyze-threat', {
+        body: {
+          request_data: {
+            url: fullUrl,
+            path: scenario.path || '/',
+            method: scenario.method || 'GET',
+            body: scenario.body || undefined,
+            user_agent: scenario.user_agent || 'Mozilla/5.0 (compatible; bot/1.0)',
+            ip: incomingIp || `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+            protected_site: selectedSite.url,
+            protected_site_name: selectedSite.name,
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) { toast.error(data.error); return; }
+      
+      setLastResult(data.analysis);
+      if (data.analysis.is_threat) toast.warning(`Threat detected: ${data.analysis.threat_type}`);
+      else toast.success('Request appears clean — WAF did not flag this');
+      loadRecentThreats();
+    } catch (error: any) {
+      toast.error(error.message || 'Attack simulation failed');
+    } finally {
+      setRunningCustomAttack(false);
+    }
+  };
+
   const analyzeRequest = async () => {
     if (!selectedSite) { toast.error('Add a protected site first'); return; }
     if (!incomingPath) { toast.error('Enter the request path'); return; }
@@ -179,6 +241,55 @@ export default function AIDetection() {
         <p className="text-sm text-muted-foreground">
           Simulate incoming traffic to your protected sites and let Deflectra's AI analyze it
         </p>
+      </div>
+
+      {/* Custom Attack Simulation */}
+      <div className="glass-card rounded-xl p-5 space-y-4 border border-primary/20">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          Quick Attack Simulation
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Describe any attack type and Deflectra's AI will crawl your site, craft a realistic payload, and test your WAF — all in one step.
+        </p>
+
+        {sites.length > 0 && !selectedSiteId && (
+          <p className="text-xs text-muted-foreground italic">Select a protected site below first.</p>
+        )}
+
+        <div className="flex gap-2">
+          <Input
+            placeholder="e.g. SQL injection on login, XSS via search bar, SSRF attack, directory traversal..."
+            value={customAttackInput}
+            onChange={(e) => setCustomAttackInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !runningCustomAttack && runCustomAttack()}
+            className="bg-secondary/50 border-border text-sm rounded-xl h-10 flex-1"
+            disabled={runningCustomAttack}
+          />
+          <Button
+            onClick={runCustomAttack}
+            disabled={runningCustomAttack || !selectedSite || !customAttackInput.trim()}
+            className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl h-10 px-4"
+          >
+            {runningCustomAttack ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Simulating...</>
+            ) : (
+              <><Zap className="w-4 h-4 mr-2" />Simulate</>
+            )}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {['SQL injection on login', 'XSS via search', 'Path traversal attack', 'SSRF to internal services', 'Brute force admin panel', 'API key exfiltration'].map((example) => (
+            <button
+              key={example}
+              onClick={() => setCustomAttackInput(example)}
+              className="px-2 py-1 rounded-lg bg-secondary/50 border border-border/50 text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Analysis Input */}

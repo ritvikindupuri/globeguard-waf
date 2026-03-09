@@ -320,6 +320,19 @@ For each scenario:
 
 IMPORTANT: If Supabase/functions/v1 endpoints were detected, include attacks targeting those. If React was detected, include XSS attacks targeting React patterns.`;
 
+    case "custom_attack":
+      return `${intelSummary}
+
+The user wants to simulate a SPECIFIC type of attack: "${field}"
+
+Based on the REAL crawl data above and the user's requested attack type, generate a SINGLE highly realistic attack scenario that:
+1. Targets actual endpoints/patterns discovered on THIS specific app
+2. Uses the exact attack technique the user described
+3. Crafts a convincing, realistic payload that would test the WAF's detection
+4. Includes appropriate HTTP method, path, body, and user agent for this attack type
+
+Be creative and realistic. This is for security testing — make the attack scenario as realistic as possible so the WAF can be properly tested.`;
+
     case "rate_limiting":
       return `${intelSummary}
 
@@ -509,6 +522,33 @@ function buildTool(context: string, field?: string): any {
               },
             },
             required: ["rules", "detected_vulnerabilities"],
+          },
+        },
+      };
+
+    case "custom_attack":
+      return {
+        type: "function",
+        function: {
+          name: "generate_custom_attack",
+          description: "Generate a single realistic attack scenario based on the user's described attack type and real crawl data",
+          parameters: {
+            type: "object",
+            properties: {
+              scenario: {
+                type: "object",
+                properties: {
+                  path: { type: "string", description: "Request path with attack payload" },
+                  method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE"] },
+                  body: { type: "string", description: "Request body with attack payload (empty string if not needed)" },
+                  user_agent: { type: "string", description: "Attacker user agent string" },
+                  attack_name: { type: "string", description: "Short name for the attack type" },
+                  explanation: { type: "string", description: "Brief explanation of what this attack does and why it targets this specific app" },
+                },
+                required: ["path", "method", "body", "user_agent", "attack_name", "explanation"],
+              },
+            },
+            required: ["scenario"],
           },
         },
       };
