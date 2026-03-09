@@ -527,29 +527,144 @@ export default function APIProtection() {
             </table>
           </div>
 
-          {/* Test Results */}
-          {Object.entries(testResults).some(([, v]) => v !== null) && (
-            <div className="px-4 py-3 border-t border-border/50 space-y-2">
-              <p className="text-[10px] font-mono text-muted-foreground uppercase">Test Results</p>
-              {endpoints.map(ep => {
-                const result = testResults[ep.id];
-                if (!result) return null;
-                return (
-                  <div key={ep.id} className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs",
-                    result.status === 'pass' ? 'bg-accent/10 text-accent' :
-                    result.status === 'blocked' ? 'bg-primary/10 text-primary' :
-                    'bg-destructive/10 text-destructive'
-                  )}>
-                    {result.status === 'pass' ? <CheckCircle className="w-3.5 h-3.5" /> :
-                     result.status === 'blocked' ? <Shield className="w-3.5 h-3.5" /> :
-                     <XCircle className="w-3.5 h-3.5" />}
-                    <span className="font-mono">{ep.path}</span>
-                    <span className="text-muted-foreground">—</span>
-                    <span>{result.message}</span>
-                  </div>
-                );
-              })}
+          {/* Detailed Test Results */}
+          {Object.entries(testResults).some(([, v]) => v.length > 0) && (
+            <div className="border-t border-border/50">
+              <div className="px-5 py-3 border-b border-border/30">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Test Results</p>
+              </div>
+              <div className="divide-y divide-border/30">
+                {endpoints.map(ep => {
+                  const results = testResults[ep.id];
+                  if (!results || results.length === 0) return null;
+                  return results.map((r, idx) => {
+                    const testKey = `${ep.id}-${idx}`;
+                    const isExpanded = expandedTestId === testKey;
+                    const blockUrl = r.action === 'blocked' ? buildBlockPageUrl(r.path) : null;
+                    return (
+                      <div key={testKey} className="transition-colors">
+                        <button
+                          onClick={() => setExpandedTestId(isExpanded ? null : testKey)}
+                          className="w-full px-5 py-3 hover:bg-secondary/20 transition-colors text-left"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                {r.status === 'blocked' ? (
+                                  <Shield className={cn("w-3.5 h-3.5 shrink-0", severityColor(r.severity))} />
+                                ) : r.status === 'pass' ? (
+                                  <CheckCircle className="w-3.5 h-3.5 shrink-0 text-accent" />
+                                ) : (
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-destructive" />
+                                )}
+                                <span className="text-sm font-semibold text-foreground">{r.name}</span>
+                                <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded border", 
+                                  METHOD_STYLES[r.method] || 'bg-secondary/50 border-border text-muted-foreground'
+                                )}>{r.method}</span>
+                                <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[200px]">{r.path}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 ml-5 line-clamp-1">{r.reason}</p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
+                              <span className={cn("text-[10px] font-bold font-mono uppercase px-2 py-0.5 rounded",
+                                r.action === 'blocked' ? 'bg-destructive/10 text-destructive' :
+                                r.action === 'allowed' ? 'bg-accent/10 text-accent' :
+                                'bg-secondary/50 text-muted-foreground'
+                              )}>{r.action}</span>
+                              {r.httpStatus && (
+                                <span className="text-xs font-mono text-muted-foreground">{r.httpStatus}</span>
+                              )}
+                              {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                            </div>
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-5 pb-4 space-y-3 bg-secondary/10 border-t border-border/30">
+                            <div className="pt-3">
+                              <p className="text-[10px] font-mono text-muted-foreground mb-1.5">WAF ANALYSIS</p>
+                              <p className="text-xs text-foreground leading-relaxed">{r.reason}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">METHOD</p>
+                                <p className="text-xs font-mono text-foreground">{r.method}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">PATH</p>
+                                <p className="text-xs font-mono text-foreground break-all">{r.path}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">SOURCE IP</p>
+                                <p className="text-xs font-mono text-foreground">{r.sourceIp}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">HTTP STATUS</p>
+                                <p className="text-xs font-mono text-foreground">{r.httpStatus || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">SEVERITY</p>
+                                <p className={cn("text-xs font-mono font-bold uppercase", severityColor(r.severity))}>{r.severity}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">ACTION</p>
+                                <p className="text-xs font-mono text-foreground uppercase">{r.action}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">TEST NAME</p>
+                                <p className="text-xs font-mono text-foreground">{r.name}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono text-muted-foreground">RESULT</p>
+                                <p className={cn("text-xs font-mono font-bold uppercase",
+                                  r.status === 'blocked' ? 'text-primary' : r.status === 'pass' ? 'text-accent' : 'text-destructive'
+                                )}>{r.status === 'blocked' ? 'CORRECTLY BLOCKED' : r.status === 'pass' ? 'PASSED' : 'FAILED'}</p>
+                              </div>
+                            </div>
+
+                            {/* Block Page URL */}
+                            {(() => {
+                              if (r.action !== 'blocked') {
+                                return (
+                                  <div className="bg-secondary/30 rounded-lg p-3 border border-border/30">
+                                    <p className="text-[10px] font-mono text-muted-foreground mb-1">BLOCK PAGE</p>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                      <span className="font-semibold text-foreground">No block page generated.</span>{' '}
+                                      This request was {r.action === 'allowed' ? 'allowed through — the WAF did not detect a threat severe enough to block it.' : `marked as "${r.action}" which does not trigger a block page.`}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              if (!blockUrl) {
+                                return <p className="text-[10px] text-muted-foreground italic">Set your Cloudflare Worker domain in AI Detection to generate block page links.</p>;
+                              }
+                              return (
+                                <div>
+                                  <p className="text-[10px] font-mono text-muted-foreground mb-1">VIEW BLOCK PAGE</p>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                                      {blockUrl}
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                      onClick={() => { navigator.clipboard.writeText(blockUrl); toast.success('URL copied'); }}>
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                      onClick={() => window.open(blockUrl, '_blank')}>
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })}
+              </div>
             </div>
           )}
         </div>
