@@ -218,7 +218,7 @@ flowchart LR
     end
 ```
 
-<p align="center"><em>Figure 2: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
+<p align="center"><em>Figure 1: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
 
 **Implementation Details:**
 - **Data Source:** Queries `threat_logs` for entries with non-null `source_lat` and `source_lng` values
@@ -262,7 +262,7 @@ sequenceDiagram
     participant U as User
     participant UI as Site Manager
     participant EF as auto-setup-waf
-    participant AI as Gemini 3 Flash
+    participant AI as Gemini 3.1 Pro
     participant DB as Database
 
     U->>UI: Click AI Auto-Setup
@@ -430,7 +430,7 @@ flowchart TD
     THREAT_LOG --> REALTIME[Push to Dashboard]
 ```
 
-<p align="center"><em>Figure: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
+<p align="center"><em>Figure 1: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
 
 #### Step-by-Step AI Analysis:
 
@@ -650,7 +650,7 @@ flowchart TD
     INJECT --> DYNAMIC
 ```
 
-<p align="center"><em>Figure: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
+<p align="center"><em>Figure 1: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
 
 #### Step-by-Step Blocking Mechanism:
 
@@ -1099,7 +1099,7 @@ sequenceDiagram
     UI->>DB: Insert generated records
 ```
 
-<p align="center"><em>Figure: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
+<p align="center"><em>Figure 1: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
 
 ### Technical Implementation
 
