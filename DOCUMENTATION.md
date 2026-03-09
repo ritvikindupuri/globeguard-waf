@@ -154,7 +154,7 @@ The frontend is built with React 18, Vite, TypeScript, and Tailwind CSS. It uses
 The backend is powered by Supabase (PostgreSQL + Edge Functions + Realtime). The `waf-proxy` edge function is the core of the WAF — it receives all proxied requests and runs them through the inspection pipeline. Four edge functions handle different aspects of the system.
 
 **External Services:**
-- **Google Gemini 3 Flash** — AI threat classification via the Lovable AI Gateway
+- **Google Gemini 3.1 Pro** — AI threat classification via the Lovable AI Gateway
 - **Mapbox GL** — 3D globe rendering for geographic threat visualization
 - **Resend** — Email delivery for threat alerts and test notifications
 
