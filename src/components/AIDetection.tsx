@@ -291,7 +291,7 @@ export default function AIDetection() {
                 const fullUrl = `https://${displayUrl}`;
                 return (
                   <div key={testPath} className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-foreground truncate flex-1">{fullUrl}</span>
+                    <span className="text-[10px] font-mono text-foreground truncate flex-1">{displayUrl}</span>
                     <Button size="sm" variant="ghost" className="h-5 w-5 p-0 shrink-0"
                       onClick={() => { navigator.clipboard.writeText(fullUrl); toast.success('Copied!'); }}>
                       <Copy className="w-3 h-3" />
