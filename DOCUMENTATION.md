@@ -1060,11 +1060,11 @@ erDiagram
 
 ## AI Auto-Fill Configuration
 
-Deflectra features an intelligent AI-powered auto-fill system that eliminates manual configuration by automatically extracting endpoint information from your web application and generating security configurations tailored to your app's architecture.
+Deflectra features an intelligent AI-powered auto-fill system that eliminates manual configuration by **actually crawling your web application** to extract real endpoint information and generating security configurations tailored to your app's architecture.
 
 ### Overview
 
-Instead of manually entering request paths, methods, rate limits, and WAF rules, users can simply click a "Generate with AI" button. The AI analyzes the protected site URL, deep-crawls the application to discover endpoints, identifies the technology stack, and auto-generates appropriate security configurations.
+Instead of manually entering request paths, methods, rate limits, and WAF rules, users can simply click a "Generate with AI" button. The system performs a **real HTTP crawl** of the protected site URL, extracts technology signatures, discovers API endpoints, and auto-generates appropriate security configurations based on actual site data.
 
 ### Supported Forms
 
@@ -1077,70 +1077,124 @@ The AI auto-fill feature is available in four key configuration areas:
 | **API Shield** | Endpoint configurations with appropriate JWT, schema validation, and rate limiting toggles |
 | **Rule Engine** | Custom WAF regex rules tailored to the app's tech stack and common attack vectors |
 
-### How It Works
+### How It Works — Real Site Crawling
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant UI as Form Component
     participant EF as auto-generate-fields
+    participant SITE as Target Website
     participant AI as Gemini 3 Flash
     participant DB as Database
 
     U->>UI: Click "Generate with AI"
     UI->>UI: Select protected site from dropdown
     UI->>EF: invoke({ site_url, context })
-    EF->>AI: Analyze site URL + context
-    Note over AI: Deep crawl site<br/>Identify tech stack<br/>Discover endpoints<br/>Generate configs
+    
+    Note over EF: STEP 1: Real HTTP Crawl
+    EF->>SITE: HTTP GET (with WAF crawler user-agent)
+    SITE-->>EF: HTML Response
+    
+    Note over EF: STEP 2: Extract Intelligence
+    EF->>EF: Parse HTML for:<br/>- Script sources<br/>- Meta tags<br/>- Form actions<br/>- Link hrefs<br/>- Inline scripts
+    EF->>EF: Detect technologies:<br/>React, Vue, Next.js, Supabase,<br/>Firebase, WordPress, etc.
+    EF->>EF: Discover API endpoints:<br/>/api/*, /functions/v1/*,<br/>/graphql, /auth/*
+    
+    Note over EF: STEP 3: AI Analysis
+    EF->>AI: Send crawl data + context
     AI-->>EF: Structured JSON response
-    EF-->>UI: Generated configurations
+    
+    EF-->>UI: Generated configs + discovered intel
     UI->>UI: Auto-populate form fields
+    UI->>UI: Show "discovered" badge with tech stack
     U->>UI: Review and save
     UI->>DB: Insert generated records
 ```
 
-<p align="center"><em>Figure 1: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
+<p align="center"><em>Figure 1: AI Auto-Fill Flow — Real HTTP crawling followed by AI analysis for accurate configuration generation.</em></p>
+
+### Site Intelligence Extraction
+
+The `auto-generate-fields` edge function performs a **real HTTP fetch** of the target site and extracts the following intelligence:
+
+| Data Extracted | How It's Used |
+|----------------|---------------|
+| **Technologies Detected** | Tailors WAF rules to specific frameworks (React XSS patterns, Supabase SQL injection, etc.) |
+| **API Endpoints** | Pre-populates path fields with actual discovered endpoints |
+| **Meta Tags** | Identifies site purpose (SPA, SSR, e-commerce) for appropriate protection levels |
+| **Script Sources** | Detects third-party integrations (Stripe, Auth0, analytics) requiring protection |
+| **Form Actions** | Discovers POST endpoints for rate limiting and schema validation |
+| **Link Hrefs** | Maps site structure for comprehensive endpoint coverage |
+
+### Technology Detection
+
+The crawler detects 25+ technologies by analyzing HTML content and script sources:
+
+| Category | Technologies Detected |
+|----------|----------------------|
+| **Frontend Frameworks** | React, Vue.js, Angular, Next.js, Nuxt.js, Svelte |
+| **Backend/BaaS** | Supabase, Firebase, Prisma, tRPC |
+| **Hosting** | Vercel, Netlify, Cloudflare, AWS |
+| **CMS/E-commerce** | WordPress, Shopify |
+| **Auth Providers** | Auth0, Clerk |
+| **Payments** | Stripe |
+| **CSS Frameworks** | Tailwind CSS, Bootstrap |
+| **API Styles** | GraphQL, REST |
+| **Databases** | MongoDB, PostgreSQL |
+| **Monitoring** | Google Analytics, Sentry, Datadog |
 
 ### Technical Implementation
 
-The `auto-generate-fields` edge function accepts two parameters:
+The `auto-generate-fields` edge function accepts these parameters:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `site_url` | string | The URL of the protected site to analyze |
 | `context` | enum | One of: `ai_detection`, `rate_limiting`, `api_shield`, `rule_engine` |
+| `field` | string (optional) | Specific field to regenerate (for per-field generation) |
 
-The function uses Google Gemini 3 Flash with structured tool calling to ensure responses match the expected schema for each context.
+**Response includes:**
+```json
+{
+  "success": true,
+  "data": { /* generated configurations */ },
+  "discovered": {
+    "technologies": ["React", "Supabase", "Tailwind CSS"],
+    "endpoints": ["/api/auth/login", "/functions/v1/chatbot", "/api/contact"]
+  }
+}
+```
 
 ### Context-Specific Generation
 
 **AI Detection Context:**
-Generates 5 realistic attack simulation scenarios including:
-- Request paths targeting common endpoints
-- HTTP methods (GET, POST, PUT, DELETE)
-- Malicious request bodies (SQLi, XSS payloads)
+Generates 5+ realistic attack simulation scenarios based on crawl data:
+- Request paths targeting **actually discovered** endpoints
+- HTTP methods matched to endpoint purpose
+- Malicious request bodies (SQLi, XSS payloads) targeting detected tech stack
 - Realistic attacker user-agents
 
 **Rate Limiting Context:**
 Generates rate limit rules for:
-- Authentication endpoints (/login, /signup, /auth)
-- API endpoints with appropriate request limits
+- **Discovered** authentication endpoints
+- **Detected** API endpoints with appropriate request limits
 - Webhook handlers with stricter limits
 - Public endpoints with relaxed limits
 
 **API Shield Context:**
 Generates endpoint configurations with:
-- Path and method detection
+- **Actual paths** discovered from crawl
 - JWT inspection enabled for authenticated routes
 - Schema validation for POST/PUT endpoints
 - Rate limiting flags for sensitive operations
 
 **Rule Engine Context:**
 Generates WAF rules including:
-- SQLi patterns tailored to the detected database type
-- XSS patterns for the detected frontend framework
-- RCE patterns for the detected backend language
-- LFI patterns based on the server environment
+- SQLi patterns tailored to the **detected database type**
+- XSS patterns for the **detected frontend framework**
+- RCE patterns for the **detected backend language**
+- LFI patterns based on the **discovered server environment**
 - Custom rules based on discovered vulnerabilities
 
 ### User Experience
@@ -1148,19 +1202,20 @@ Generates WAF rules including:
 1. User opens any configuration form (AI Detection, Rate Limiting, API Shield, or Rule Engine)
 2. User selects a protected site from the dropdown
 3. User clicks the "Generate with AI" button (sparkles icon)
-4. A loading spinner indicates AI analysis is in progress
+4. A loading spinner indicates site crawling and AI analysis is in progress
 5. Form fields are automatically populated with generated values
-6. User can review, modify, and save the configuration
+6. **NEW:** A "Discovered" section shows detected technologies and endpoints
+7. User can review, modify, and save the configuration
 
 ### Per-Field AI Regeneration
 
-In addition to generating all fields at once, users can regenerate **individual fields** by clicking the sparkle (✨) button next to any input. This allows fine-tuning specific values while keeping others unchanged.
+In addition to generating all fields at once, users can regenerate **individual fields** by clicking the sparkle (✨) button next to any input. This triggers a fresh crawl of the site and regenerates only the selected field.
 
 **How Per-Field Generation Works:**
 1. Click the sparkle icon (✨) next to any form input (e.g., "Path", "Method", "Pattern")
-2. The AI re-analyzes your protected site with a deep crawl
+2. The edge function **re-crawls** your protected site to get fresh data
 3. Only the selected field is regenerated — other fields remain untouched
-4. The AI uses **Google Gemini 3 Flash** via the Lovable AI Gateway to ensure accurate, technology-aware recommendations
+4. The AI uses **Google Gemini 3 Flash** with real crawl data for accurate recommendations
 
 **Example:** In API Shield, you can regenerate just the "Path" field to discover a new endpoint while keeping your existing method and toggle settings.
 
@@ -1178,23 +1233,53 @@ This makes it easy to see at a glance which configurations were AI-generated vs 
 
 ### AI Model Used
 
-All AI auto-fill features (both full-form and per-field generation) use **Google Gemini 3 Flash** (`google/gemini-3-flash-preview`) via the Lovable AI Gateway. The model is invoked through the `auto-generate-fields` edge function with structured tool calling to ensure type-safe JSON responses.
+All AI auto-fill features (both full-form and per-field generation) use **Google Gemini 3 Flash** (`google/gemini-3-flash-preview`) via the Lovable AI Gateway. The model is invoked through the `auto-generate-fields` edge function with:
+1. **Real crawl data** from HTTP fetch of the target site
+2. **Structured tool calling** to ensure type-safe JSON responses
+
+### Crawler Technical Details
+
+The `fetchSiteIntelligence()` function in the edge function:
+
+```typescript
+// User-Agent identifies Deflectra crawler
+"User-Agent": "Deflectra-WAF-Crawler/1.0 (Security Analysis)"
+
+// Extracts data using regex patterns:
+// - Meta tags: <meta name="..." content="...">
+// - Script sources: <script src="...">
+// - Form actions: <form action="...">
+// - Links: <a href="...">
+// - Inline scripts (limited to 5, max 500 chars each)
+
+// API endpoint patterns detected:
+// - /api/*
+// - /functions/v1/*
+// - /rest/v1/*
+// - /graphql
+// - /v[0-9]+/*
+// - /auth/*
+
+// HTML limited to 50KB for LLM context efficiency
+```
 
 ### Edge Cases
 
 - **No Protected Sites:** The generate button is disabled with a tooltip explaining a site must be added first
+- **Site Unreachable:** AI falls back to tech-stack-based generation using detected patterns from URL structure
 - **Generation Failure:** An error toast is shown and form fields remain empty for manual input
 - **Partial Generation:** Any successfully generated fields are populated; missing fields remain editable
 
 ### Benefits
 
-| Manual Configuration | AI Auto-Fill |
-|---------------------|--------------|
+| Manual Configuration | AI Auto-Fill with Real Crawling |
+|---------------------|--------------------------------|
 | 5-10 minutes per rule | 5 seconds per batch |
 | Requires security expertise | AI applies best practices automatically |
-| Easy to miss endpoints | AI crawls entire application |
-| Generic patterns | Patterns tailored to your tech stack |
+| Easy to miss endpoints | **Real HTTP crawl** discovers actual endpoints |
+| Generic patterns | Patterns tailored to **detected** tech stack |
 | All-or-nothing generation | Per-field regeneration for fine-tuning |
+| Guesswork about tech stack | **Actual** technology detection from site content |
 
 ---
 
