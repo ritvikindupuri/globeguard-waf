@@ -325,7 +325,7 @@ serve(async (req) => {
     let aiAnalysis: any = null;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!blocked && !matchedRule && LOVABLE_API_KEY) {
+    if (!blocked && !matchedRule && LOVABLE_API_KEY && aiDetectionEnabled) {
       try {
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
