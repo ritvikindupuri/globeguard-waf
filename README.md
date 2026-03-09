@@ -117,8 +117,57 @@ All inspection results — whether blocked or allowed — are logged to the `thr
 
 ### Step 1: Access the Application
 
-1. Open the live deployment at **[https://aiwaf.netlify.app](https://aiwaf.netlify.app/)**
-2. You will land on the **Auth** page
+There are two ways to access Deflectra:
+
+#### Option A — Use the Live Deployment (Quickest)
+
+1. Open **[https://aiwaf.netlify.app](https://aiwaf.netlify.app/)**
+2. You will land on the **Auth** page — skip to Step 2
+
+#### Option B — Run Locally
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-username/deflectra.git
+   cd deflectra
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables:**
+   Create a `.env` file in the project root with the following:
+   ```env
+   VITE_SUPABASE_URL=your-supabase-url
+   VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+   VITE_SUPABASE_PROJECT_ID=your-supabase-project-id
+   ```
+   These values come from your Supabase project dashboard under **Settings → API**.
+
+4. **Push database migrations:**
+   ```bash
+   npx supabase db push
+   ```
+   This creates all required tables (`waf_rules`, `threat_logs`, `protected_sites`, `rate_limit_rules`, `api_endpoints`, `waf_settings`, `notifications`, `rate_limit_hits`) with Row-Level Security policies.
+
+5. **Deploy Edge Functions:**
+   ```bash
+   npx supabase functions deploy waf-proxy analyze-threat auto-setup-waf auto-generate-fields send-notification
+   ```
+
+6. **Set backend secrets:**
+   ```bash
+   npx supabase secrets set LOVABLE_API_KEY=your-lovable-api-key
+   ```
+   The `LOVABLE_API_KEY` powers the AI threat analysis and auto-generation features.
+
+7. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+   The app will be available at `http://localhost:5173`. You will land on the **Auth** page.
 
 ### Step 2: Create Your Account
 
