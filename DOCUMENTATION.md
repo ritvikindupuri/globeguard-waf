@@ -728,6 +728,28 @@ sequenceDiagram
 - The hook is activated in `DashboardLayout`, so notifications work on every page
 - Blocked attacks show error-style toasts; logged threats show warning-style toasts
 
+### Notification Center
+
+The dedicated Notification Center page (`/notifications`) provides a full notification management interface:
+
+- **Filter Tabs** — All, Unread, Threats, System — for quickly narrowing down notifications
+- **Unread Badge** — The sidebar navigation shows a real-time unread count badge on the Notifications link, updated every 30 seconds
+- **Mark as Read / Dismiss** — Individual and bulk actions for managing notifications
+- **Severity-Coded Cards** — Each notification card has a colored left border matching its severity (critical=red, high=orange, medium=yellow)
+- **Unread Indicator** — Unread notifications display a blue dot and a subtle ring highlight
+- **Metadata Display** — Each notification shows the source IP, severity badge, notification type, and relative timestamp (e.g., "2m ago")
+
+### Automatic Notification Seeding
+
+The Notification Center automatically seeds notifications from recent `threat_logs` entries. When the page loads:
+
+1. It fetches the 20 most recent threat log entries
+2. Checks for existing notifications (via `threat_log_id` in metadata) to avoid duplicates
+3. Creates up to 10 new notification records from unprocessed threat logs
+4. Each seeded notification includes the threat title, AI explanation (if available), severity, and source IP
+
+This ensures users always have notifications for recent security events, even if the real-time push was missed.
+
 <p align="center">
   <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
 </p>
