@@ -737,6 +737,12 @@ flowchart TD
 
 <p align="center"><em>Figure 1: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
 
+<p align="center">
+  <img src="https://i.imgur.com/mIUPEic.png" alt="Branded Block Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Branded Block Page — The custom-branded 403 page served to attackers, showing the animated shield logo, critical severity badge, AI-generated block reason, attacker IP, and blocked request path.</em></p>
+
 #### Step-by-Step Blocking Mechanism:
 
 **Step 1 — Threat Logging:**
