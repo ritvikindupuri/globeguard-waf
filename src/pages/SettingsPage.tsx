@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Shield, Bell, Key, LogOut, Send, Mail } from 'lucide-react';
+import { Shield, Bell, Key, LogOut, Send, Mail, Brain, Gauge, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +14,9 @@ export default function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [alertEmail, setAlertEmail] = useState('');
   const [resendApiKey, setResendApiKey] = useState('');
+  const [aiDetectionEnabled, setAiDetectionEnabled] = useState(true);
+  const [apiProtectionEnabled, setApiProtectionEnabled] = useState(true);
+  const [rateLimitingEnabled, setRateLimitingEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [testingSend, setTestingSend] = useState(false);
@@ -32,6 +36,9 @@ export default function SettingsPage() {
       setDefaultAction(data.default_action);
       setWebhookUrl(data.webhook_url || '');
       setAlertEmail(data.alert_email || '');
+      setAiDetectionEnabled(data.ai_detection_enabled);
+      setApiProtectionEnabled(data.api_protection_enabled);
+      setRateLimitingEnabled(data.rate_limiting_enabled);
     }
     setLoaded(true);
   };
@@ -53,6 +60,9 @@ export default function SettingsPage() {
       default_action: defaultAction,
       webhook_url: webhookUrl || null,
       alert_email: alertEmail || null,
+      ai_detection_enabled: aiDetectionEnabled,
+      api_protection_enabled: apiProtectionEnabled,
+      rate_limiting_enabled: rateLimitingEnabled,
     }, { onConflict: 'user_id' });
     if (error) toast.error('Failed to save');
     else toast.success('Settings saved');
@@ -102,6 +112,45 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Configure your Deflectra WAF</p>
+      </div>
+
+      {/* Feature Toggles */}
+      <div className="glass-card rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-primary" /> Protection Features
+        </h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Brain className="w-4 h-4 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">AI Threat Detection</p>
+                <p className="text-xs text-muted-foreground">Use Gemini AI to detect unknown threats</p>
+              </div>
+            </div>
+            <Switch checked={aiDetectionEnabled} onCheckedChange={setAiDetectionEnabled} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Shield className="w-4 h-4 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">API Protection</p>
+                <p className="text-xs text-muted-foreground">JWT validation & schema enforcement</p>
+              </div>
+            </div>
+            <Switch checked={apiProtectionEnabled} onCheckedChange={setApiProtectionEnabled} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Gauge className="w-4 h-4 text-accent" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Rate Limiting</p>
+                <p className="text-xs text-muted-foreground">Per-IP request limits</p>
+              </div>
+            </div>
+            <Switch checked={rateLimitingEnabled} onCheckedChange={setRateLimitingEnabled} />
+          </div>
+        </div>
       </div>
 
       <div className="glass-card rounded-xl p-5 space-y-4">
