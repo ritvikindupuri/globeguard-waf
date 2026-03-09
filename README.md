@@ -43,16 +43,32 @@ flowchart TB
 
 <p align="center"><em>Figure 1: Deflectra System Architecture</em></p>
 
+### How It Works
+
+1. **Traffic Interception** — All incoming requests hit the Cloudflare Worker at the edge, which forwards them to the WAF proxy for inspection before they ever reach your origin server.
+
+2. **6-Stage Inspection Pipeline** — Each request passes through a layered security check:
+   - *API Shield* checks JWT tokens and validates request bodies against schemas
+   - *Rate Limiter* tracks per-IP request counts and blocks abusers
+   - *Regex Engine* matches against SQLi, XSS, LFI, and RCE attack patterns
+   - *AI Analysis* sends suspicious requests to Gemini for classification with confidence scoring
+   - *Logger* records all threats with IP geolocation for the dashboard
+   - *Decision* either forwards clean traffic to origin or serves a branded block page
+
+3. **Real-Time Dashboard Updates** — When an attack is blocked, the database triggers a WebSocket event that instantly pushes the threat data to all connected dashboard sessions.
+
+4. **Geographic Visualization** — Blocked attacks are plotted on a 3D globe with animated arcs showing attack origin → target, helping you visualize threat patterns at a glance.
+
 ### Architecture Breakdown
 
-| Layer | Purpose |
-|-------|---------|
-| Entry Point | Cloudflare Worker routes traffic through WAF proxy |
-| WAF Engine | 6-stage inspection pipeline: API Shield → Rate Limiting → Regex Rules → AI Analysis → Logging → Block/Forward |
-| AI Model | Classifies requests with confidence scores and geographic origin estimation |
-| Database | Multi-tenant data isolation with Row-Level Security |
-| Real-Time | WebSocket push notifications on blocked attacks |
-| Visualization | 3D globe rendering of attack sources |
+| Layer | Component | What It Does |
+|-------|-----------|--------------|
+| Edge | Cloudflare Worker | Sits in front of your app, intercepts all traffic, and routes it through the WAF before forwarding to origin |
+| WAF Engine | waf-proxy Function | Runs the 6-stage inspection pipeline, makes block/allow decisions, logs threats |
+| AI Layer | Gemini 3 Flash | Analyzes ambiguous requests that pass regex checks, returns threat classification + confidence score + estimated country of origin |
+| Database | PostgreSQL + RLS | Stores rules, threats, sites, and settings with row-level security isolating each user's data |
+| Real-Time | Supabase Realtime | Pushes blocked threat events to the dashboard via WebSocket subscriptions |
+| Visualization | Mapbox GL JS | Renders a 3D globe with attack arcs, rotating view, and threat markers |
 
 ## Tech Stack
 
@@ -64,16 +80,25 @@ Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cl
 
 ## Features
 
-- **Reverse Proxy WAF** — Layer 7 inspection pipeline
-- **Regex Rule Engine** — SQLi, XSS, LFI, RCE patterns with priority ordering
-- **AI Threat Classification** — Gemini 3 Flash with confidence scores
-- **API Shield** — JWT inspection, schema validation, per-endpoint controls
-- **Rate Limiting** — Per-IP counting with configurable windows
-- **3D Threat Globe** — Mapbox GL geographic visualization
-- **Real-Time Notifications** — WebSocket push on blocked attacks
-- **Branded Block Page** — Professional HTML served to attackers
-- **AI Auto-Setup** — One-click rule generation from site analysis
-- **Cloudflare Worker Integration** — Edge routing for full traffic interception
+### Security Engine
+- **Reverse Proxy WAF** — All traffic routes through the WAF before reaching your origin, giving you full request inspection without changing your backend code
+- **Regex Rule Engine** — Pre-built patterns for SQLi, XSS, LFI, RCE, and path traversal attacks. Rules have priority ordering so critical checks run first, and you can add custom patterns
+- **AI Threat Classification** — Requests that look suspicious but don't match known patterns get sent to Gemini 3 Flash, which returns a threat type, confidence score (0-100), and estimated geographic origin
+- **Branded Block Page** — Attackers see a professional "Access Denied" page with your branding instead of raw error codes
+
+### API Protection
+- **API Shield** — Define protected endpoints with per-route controls for JWT inspection and JSON schema validation
+- **Rate Limiting** — Configurable per-IP limits with sliding windows (e.g., 100 requests per 60 seconds), with automatic blocking when thresholds are exceeded
+
+### Dashboard & Monitoring
+- **3D Threat Globe** — Live visualization of blocked attacks on a rotating Mapbox globe, with animated arcs showing attack source to your server
+- **Real-Time Threat Feed** — WebSocket-powered table that updates instantly when new threats are blocked
+- **Traffic Analytics** — Charts showing request volume, block rates, and threat type distribution over time
+
+### Setup & Configuration
+- **AI Auto-Setup** — Paste your site URL and the AI analyzes your application, then generates recommended WAF rules tailored to your tech stack and exposed endpoints
+- **Multi-Site Support** — Protect multiple applications from a single dashboard, each with its own rules and analytics
+- **Email Notifications** — Get alerts via Resend when high-severity attacks are blocked
 
 ## Setup Instructions
 
