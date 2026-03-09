@@ -195,6 +195,12 @@ Below the stats, the dashboard displays:
 - **Traffic Chart** — An area chart showing threats over time (24-hour buckets)
 - **Threat Table** — Recent threat log entries with severity, type, IP, and action taken
 
+<p align="center">
+  <img src="https://i.imgur.com/s3LYEx2.png" alt="Deflectra Dashboard Overview" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Dashboard Overview — Real-time stat cards, embedded Mapbox threat map, traffic activity chart, and recent threat log table.</em></p>
+
 ---
 
 ## Live Threat Map (Mapbox Globe)
