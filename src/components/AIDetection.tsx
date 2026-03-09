@@ -262,22 +262,47 @@ export default function AIDetection() {
       </div>
 
       {/* Worker Domain Config */}
-      <div className="glass-card rounded-xl p-4 space-y-2">
+      <div className="glass-card rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Link className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">Cloudflare Worker Domain</h3>
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Enter your Cloudflare Worker URL so Deflectra can generate direct block page links. This is the <span className="font-mono">*.workers.dev</span> domain (or custom domain) from your Cloudflare dashboard.
+          Enter your Cloudflare Worker URL so Deflectra can generate direct block page links. Find this in your <span className="font-semibold">Cloudflare dashboard → Workers & Pages → your worker</span> — it looks like <span className="font-mono">your-worker.your-subdomain.workers.dev</span>.
         </p>
         <Input
-          placeholder="e.g. my-waf.your-subdomain.workers.dev"
+          placeholder="e.g. deflectrawaf.codeworker.workers.dev"
           value={workerDomain}
           onChange={(e) => saveWorkerDomain(e.target.value)}
           className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10"
         />
         {workerDomain && (
-          <p className="text-[10px] text-accent font-mono">✓ Block page URLs will use: {workerDomain.startsWith('http') ? workerDomain : `https://${workerDomain}`}</p>
+          <div className="space-y-2">
+            <p className="text-[10px] text-accent font-mono">✓ Block page URLs will use: {workerDomain.startsWith('http') ? workerDomain : `https://${workerDomain}`}</p>
+            <div className="bg-secondary/30 rounded-lg p-3 space-y-1.5">
+              <p className="text-[10px] font-semibold text-foreground">⚡ Quick Test — paste these in your browser to see the block page:</p>
+              {[
+                '/api/admin/dump-database',
+                '/api/users?id=1%20OR%201=1--',
+                '/.env',
+                '/api/config/secrets',
+              ].map(testPath => {
+                const fullUrl = `${workerDomain.startsWith('http') ? workerDomain.replace(/\/$/, '') : `https://${workerDomain.replace(/\/$/, '')}`}${testPath}`;
+                return (
+                  <div key={testPath} className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-foreground truncate flex-1">{fullUrl}</span>
+                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0 shrink-0"
+                      onClick={() => { navigator.clipboard.writeText(fullUrl); toast.success('Copied!'); }}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                );
+              })}
+              <p className="text-[10px] text-muted-foreground italic mt-1">
+                Note: Clean URLs like <span className="font-mono">/about</span> won't trigger a block — the WAF only blocks requests that contain attack patterns.
+              </p>
+            </div>
+          </div>
         )}
       </div>
 
