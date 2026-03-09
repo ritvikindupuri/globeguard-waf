@@ -93,10 +93,21 @@ export default function SiteManager() {
   };
 
   const removeSite = async (id: string) => {
-    const { error } = await supabase.from('protected_sites').delete().eq('id', id);
-    if (error) { toast.error('Failed to remove site'); return; }
+    if (!user) return;
+    
+    // Delete all user data across all tables
+    const [siteDel, rulesDel, rateDel, apiDel, threatDel, rateLimitHitsDel] = await Promise.all([
+      supabase.from('protected_sites').delete().eq('id', id),
+      supabase.from('waf_rules').delete().eq('user_id', user.id),
+      supabase.from('rate_limit_rules').delete().eq('user_id', user.id),
+      supabase.from('api_endpoints').delete().eq('user_id', user.id),
+      supabase.from('threat_logs').delete().eq('user_id', user.id),
+      supabase.from('rate_limit_hits').delete().eq('user_id', user.id),
+    ]);
+
+    if (siteDel.error) { toast.error('Failed to remove site'); return; }
     setSites(prev => prev.filter(s => s.id !== id));
-    toast.success('Site removed from protection');
+    toast.success('Site and all associated data removed');
   };
 
   const copyProxyUrl = (siteId: string) => {
