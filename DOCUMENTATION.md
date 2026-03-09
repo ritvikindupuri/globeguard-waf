@@ -1189,12 +1189,25 @@ erDiagram
         text alert_email
     }
 
+    notifications {
+        uuid id PK
+        uuid user_id
+        text type
+        text title
+        text message
+        text severity
+        boolean read
+        boolean dismissed
+        jsonb metadata
+        timestamptz created_at
+    }
+
     protected_sites ||--o{ threat_logs : "site_id"
     waf_rules ||--o{ threat_logs : "rule_id"
     rate_limit_rules ||--o{ rate_limit_hits : "path match"
 ```
 
-<p align="center"><em>Figure 1: Database Entity-Relationship Diagram — All seven tables and their relationships in the Deflectra WAF database.</em></p>
+<p align="center"><em>Figure 1: Database Entity-Relationship Diagram — All eight tables and their relationships in the Deflectra WAF database.</em></p>
 
 ### Table Details
 
