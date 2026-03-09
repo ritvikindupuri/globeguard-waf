@@ -305,6 +305,12 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: AI Auto-Setup Flow — Real HTTP crawling of the target site followed by AI-powered generation of WAF rules, rate limits, and API monitoring configs based on actual discovered content.</em></p>
 
+<p align="center">
+  <img src="https://i.imgur.com/TzVpjoW.png" alt="Protected Sites Management Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Protected Sites Management — Registered origin server with active status, WAF proxy endpoint URL, SSL indicator, and blocked threat counter.</em></p>
+
 ### What the Auto-Setup Crawler Discovers
 
 The `auto-setup-waf` function uses the same `fetchSiteIntelligence()` crawler as the per-field AI generation. It extracts:
