@@ -122,7 +122,7 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Brain className="w-4 h-4 text-cyan-400" />
+              <Brain className="w-4 h-4 text-primary" />
               <div>
                 <p className="text-sm font-medium text-foreground">AI Threat Detection</p>
                 <p className="text-xs text-muted-foreground">Use Gemini AI to detect unknown threats</p>
@@ -132,7 +132,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Shield className="w-4 h-4 text-emerald-400" />
+              <Shield className="w-4 h-4 text-primary" />
               <div>
                 <p className="text-sm font-medium text-foreground">API Protection</p>
                 <p className="text-xs text-muted-foreground">JWT validation & schema enforcement</p>
@@ -142,7 +142,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Gauge className="w-4 h-4 text-amber-400" />
+              <Gauge className="w-4 h-4 text-accent" />
               <div>
                 <p className="text-sm font-medium text-foreground">Rate Limiting</p>
                 <p className="text-xs text-muted-foreground">Per-IP request limits</p>
