@@ -142,6 +142,7 @@ serve(async (req) => {
     let blockReason = "";
     let blockSeverity = "high";
     let blockRule = "";
+    let matchedEndpoint: any = null;
     let matchedRule: any = null;
 
     // ──────────────────────────────────────────────
