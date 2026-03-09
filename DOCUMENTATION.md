@@ -31,7 +31,8 @@
 21. [AI Auto-Fill Configuration](#ai-auto-fill-configuration)
 22. [Security Controls & RLS Policies](#security-controls--rls-policies)
 23. [Attack Detection — In-Depth](#attack-detection--in-depth)
-24. [Conclusion](#conclusion)
+24. [Future Integrations & Improvements](#future-integrations--improvements)
+25. [Conclusion](#conclusion)
 
 ---
 
@@ -1541,6 +1542,170 @@ Malformed payloads can crash applications or exploit deserialization vulnerabili
 2. **Non-Object Payloads** — Primitives (strings, numbers, null) sent as JSON bodies are rejected
 3. **Oversized Payloads** — Bodies exceeding 1MB are blocked to prevent denial-of-service via large payload processing
 4. **Content-Type Mismatch** — Requests claiming `application/json` but sending invalid data are caught
+
+---
+
+## Future Integrations & Improvements
+
+Deflectra's current architecture provides a strong foundation for web application security. The following enhancements represent the next phase of development to bring the platform closer to enterprise-grade, production-hardened WAF capabilities.
+
+---
+
+### 1. Persistent Rate Limiting via Cloudflare KV / Durable Objects
+
+**Current Limitation:** Rate limiting state is stored in-memory within each Cloudflare Worker instance. This means counters reset on cold starts and are not shared across Cloudflare's global edge network — an attacker hitting different PoPs (Points of Presence) could bypass per-IP limits.
+
+**Planned Improvement:** Integrate **Cloudflare KV** (for eventually-consistent, high-read workloads) or **Durable Objects** (for strongly-consistent, per-IP counters) to persist rate limit state globally.
+
+<p align="center"><em>Figure 1: Persistent Rate Limiting Architecture</em></p>
+
+```
+┌──────────────────────────────────────────────────────┐
+│                 Cloudflare Edge Network               │
+│                                                       │
+│   Worker Instance A ──┐                               │
+│   Worker Instance B ──┼──► Durable Object (per-IP) ──►│ Block / Allow
+│   Worker Instance C ──┘    ┌─────────────────┐       │
+│                            │ Counter: 47/50  │       │
+│                            │ Window: 60s     │       │
+│                            │ Last Reset: ... │       │
+│                            └─────────────────┘       │
+└──────────────────────────────────────────────────────┘
+```
+
+**Impact:** True global rate limiting that survives instance restarts and works consistently across all edge locations worldwide.
+
+---
+
+### 2. DNS-Level Traffic Routing
+
+**Current Limitation:** The Cloudflare Worker WAF only protects traffic that is explicitly routed through it. If an attacker discovers the origin server's IP address, they can bypass the WAF entirely.
+
+**Planned Improvement:** Provide guided DNS configuration so that the protected site's domain resolves directly to the Cloudflare Worker route, ensuring **all** inbound traffic passes through Deflectra's inspection pipeline.
+
+<p align="center"><em>Figure 2: DNS-Level Routing Flow</em></p>
+
+```
+User Request
+    │
+    ▼
+DNS Lookup (example.com)
+    │
+    ▼
+Cloudflare Worker (deflectrawaf.codeworker.workers.dev)
+    │
+    ├── Inspect ──► Block (serve block page)
+    │
+    └── Allow ──► Forward to Origin (hidden IP)
+```
+
+**Impact:** Eliminates origin IP exposure and guarantees 100% traffic inspection coverage.
+
+---
+
+### 3. IP Reputation Scoring & Geo-Blocking
+
+**Current Limitation:** Deflectra evaluates each request independently without historical context about the source IP's behavior or geographic risk profile.
+
+**Planned Improvement:** Integrate external threat intelligence feeds (e.g., AbuseIPDB, IPQualityScore, or Cloudflare's own threat score) to assign reputation scores to source IPs. Additionally, provide configurable geo-blocking rules to restrict traffic from high-risk regions.
+
+<p align="center"><em>Figure 3: IP Reputation Pipeline</em></p>
+
+```
+Incoming Request (IP: 203.0.113.42)
+    │
+    ▼
+┌─────────────────────────┐
+│   IP Reputation Lookup  │
+│                         │
+│  AbuseIPDB Score: 87%   │
+│  Country: CN            │
+│  ASN: Known VPN/Proxy   │
+│  Previous Blocks: 12    │
+│                         │
+│  Risk Score: HIGH (0.87)│
+└────────┬────────────────┘
+         │
+         ▼
+   Score > Threshold? ──► Block + Log
+         │
+         No
+         ▼
+   Continue WAF Pipeline
+```
+
+**Impact:** Proactive threat prevention based on historical behavior rather than purely reactive pattern matching.
+
+---
+
+### 4. Real-Time Attack Logging Pipeline
+
+**Current Limitation:** Blocked requests are logged to the Supabase database from the edge function, but there is latency between the block event and dashboard visibility. The Cloudflare Worker logs independently.
+
+**Planned Improvement:** Implement a real-time streaming pipeline from the Cloudflare Worker directly to the Deflectra dashboard using **Supabase Realtime** or **WebSocket push**. Every blocked request would appear in the threat table and on the 3D globe within milliseconds.
+
+<p align="center"><em>Figure 4: Real-Time Logging Architecture</em></p>
+
+```
+Cloudflare Worker (Block Event)
+    │
+    ├──► Supabase Insert (threat_logs) ──► Realtime Channel
+    │                                          │
+    │                                          ▼
+    │                                   Dashboard WebSocket
+    │                                          │
+    │                                          ▼
+    │                                   ┌──────────────┐
+    │                                   │ Threat Table  │
+    │                                   │ 3D Globe Pin  │
+    │                                   │ Notification  │
+    │                                   └──────────────┘
+    │
+    └──► Cloudflare Logpush (optional, for archival)
+```
+
+**Impact:** Zero-latency visibility into active attacks with live geographic visualization on the threat globe.
+
+---
+
+### 5. L7 DDoS Mitigation & Adaptive Throttling
+
+**Current Limitation:** Cloudflare provides built-in L3/L4 DDoS protection, but Layer 7 (application-layer) floods — such as HTTP GET/POST floods — require custom logic to detect and mitigate.
+
+**Planned Improvement:** Implement adaptive throttling that detects traffic spikes per path or per IP and automatically escalates from rate limiting to CAPTCHA challenges to full IP blocking based on request velocity.
+
+<p align="center"><em>Figure 5: Adaptive Throttling Escalation</em></p>
+
+```
+Requests/sec from IP
+    │
+    0-50    ──► Normal (Allow)
+    50-100  ──► Rate Limited (Throttle)
+    100-500 ──► CAPTCHA Challenge
+    500+    ──► Full IP Block (24h TTL)
+```
+
+**Impact:** Automated defense escalation that adapts to attack intensity without manual intervention.
+
+---
+
+### 6. Webhook & SIEM Integration
+
+**Current Limitation:** Alerts are delivered via in-app notifications and optional email. There is no integration with external security monitoring platforms.
+
+**Planned Improvement:** Add configurable webhook endpoints and native integrations with popular SIEM platforms (Splunk, Datadog, PagerDuty, Slack) so that security teams can ingest Deflectra events into their existing monitoring workflows.
+
+**Impact:** Enterprise-ready incident response integration for SOC teams.
+
+---
+
+### 7. Custom Block Page Builder
+
+**Current Limitation:** The block page design is hardcoded in the Cloudflare Worker and WAF Proxy edge function.
+
+**Planned Improvement:** Provide a visual drag-and-drop block page builder within the dashboard, allowing users to customize branding, messaging, and severity-specific page variants. Block page templates would be stored per-site and served dynamically.
+
+**Impact:** White-label WAF capability for agencies and multi-tenant deployments.
 
 ---
 
