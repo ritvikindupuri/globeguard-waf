@@ -200,7 +200,7 @@ export default function APIProtection() {
             method: ep.method,
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
+              'Authorization': `Bearer ${userToken}`,
               'apikey': anonKey,
             },
             ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
