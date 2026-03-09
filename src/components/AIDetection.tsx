@@ -580,21 +580,41 @@ export default function AIDetection() {
       <div className="glass-card rounded-xl">
         <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Recent AI Detections</h3>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
-                <p className="font-semibold mb-1">AI Confidence Score</p>
-                <p className="text-muted-foreground">The percentage shown is the AI model's confidence that a request is malicious.</p>
-                <p className="mt-1.5">• <span className="text-threat-critical font-medium">90–100%</span> — Almost certainly an attack</p>
-                <p>• <span className="text-threat-high font-medium">60–89%</span> — Likely malicious</p>
-                <p>• <span className="text-threat-medium font-medium">30–59%</span> — Suspicious</p>
-                <p>• <span className="text-threat-low font-medium">0–29%</span> — Probably safe</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2">
+            {recentThreats.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={async () => {
+                  const ids = recentThreats.map(t => t.id);
+                  const { error } = await supabase.from('threat_logs').delete().in('id', ids);
+                  if (error) { toast.error('Failed to delete'); return; }
+                  setRecentThreats([]);
+                  setExpandedThreatId(null);
+                  toast.success('All detections cleared');
+                }}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Clear All
+              </Button>
+            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                  <p className="font-semibold mb-1">AI Confidence Score</p>
+                  <p className="text-muted-foreground">The percentage shown is the AI model's confidence that a request is malicious.</p>
+                  <p className="mt-1.5">• <span className="text-threat-critical font-medium">90–100%</span> — Almost certainly an attack</p>
+                  <p>• <span className="text-threat-high font-medium">60–89%</span> — Likely malicious</p>
+                  <p>• <span className="text-threat-medium font-medium">30–59%</span> — Suspicious</p>
+                  <p>• <span className="text-threat-low font-medium">0–29%</span> — Probably safe</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         {recentThreats.length === 0 ? (
           <div className="p-8 text-center"><p className="text-xs text-muted-foreground">No threats analyzed yet</p></div>
