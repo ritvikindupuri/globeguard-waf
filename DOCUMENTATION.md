@@ -267,7 +267,7 @@ sequenceDiagram
 
     U->>UI: Click AI Auto-Setup
     UI->>EF: invoke with site URL
-    EF->>AI: Analyze site tech stack
+    EF->>AI: Analyze site tech stack (Gemini 3.1 Pro)
     AI-->>EF: Recommended rules
     EF->>DB: Insert WAF rules
     EF-->>UI: Setup complete
