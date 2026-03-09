@@ -28,10 +28,11 @@
 18. [Email Notifications](#email-notifications)
 19. [Database Architecture](#database-architecture)
 20. [Edge Functions Reference](#edge-functions-reference)
-21. [Security Controls & RLS Policies](#security-controls--rls-policies)
-22. [Attack Detection — In-Depth](#attack-detection--in-depth)
-23. [Real-World Example — Protecting a Personal Portfolio](#real-world-example--protecting-a-personal-portfolio)
-24. [Conclusion](#conclusion)
+21. [AI Auto-Fill Configuration](#ai-auto-fill-configuration)
+22. [Security Controls & RLS Policies](#security-controls--rls-policies)
+23. [Attack Detection — In-Depth](#attack-detection--in-depth)
+24. [Real-World Example — Protecting a Personal Portfolio](#real-world-example--protecting-a-personal-portfolio)
+25. [Conclusion](#conclusion)
 
 ---
 
