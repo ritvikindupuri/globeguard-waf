@@ -989,6 +989,34 @@ Generates WAF rules including:
 5. Form fields are automatically populated with generated values
 6. User can review, modify, and save the configuration
 
+### Per-Field AI Regeneration
+
+In addition to generating all fields at once, users can regenerate **individual fields** by clicking the sparkle (✨) button next to any input. This allows fine-tuning specific values while keeping others unchanged.
+
+**How Per-Field Generation Works:**
+1. Click the sparkle icon (✨) next to any form input (e.g., "Path", "Method", "Pattern")
+2. The AI re-analyzes your protected site with a deep crawl
+3. Only the selected field is regenerated — other fields remain untouched
+4. The AI uses **Google Gemini 3 Flash** via the Lovable AI Gateway to ensure accurate, technology-aware recommendations
+
+**Example:** In API Shield, you can regenerate just the "Path" field to discover a new endpoint while keeping your existing method and toggle settings.
+
+### AI-Generated Field Indicators
+
+Fields populated by AI are visually distinguished from manually entered values:
+
+| Indicator | Appearance |
+|-----------|------------|
+| AI Badge | Purple "AI" badge next to the input label |
+| Border Styling | Fields have a subtle primary-colored ring (`ring-primary/20`) |
+| Automatic Clearing | Indicators disappear when the user manually edits the field |
+
+This makes it easy to see at a glance which configurations were AI-generated vs manually configured.
+
+### AI Model Used
+
+All AI auto-fill features (both full-form and per-field generation) use **Google Gemini 3 Flash** (`google/gemini-3-flash-preview`) via the Lovable AI Gateway. The model is invoked through the `auto-generate-fields` edge function with structured tool calling to ensure type-safe JSON responses.
+
 ### Edge Cases
 
 - **No Protected Sites:** The generate button is disabled with a tooltip explaining a site must be added first
@@ -1003,6 +1031,7 @@ Generates WAF rules including:
 | Requires security expertise | AI applies best practices automatically |
 | Easy to miss endpoints | AI crawls entire application |
 | Generic patterns | Patterns tailored to your tech stack |
+| All-or-nothing generation | Per-field regeneration for fine-tuning |
 
 ---
 
