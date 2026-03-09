@@ -46,6 +46,10 @@ export default function AIDetection() {
   // AI generation state
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
+  
+  // Custom attack simulation
+  const [customAttackInput, setCustomAttackInput] = useState('');
+  const [runningCustomAttack, setRunningCustomAttack] = useState(false);
 
   useEffect(() => {
     if (!user) return;
