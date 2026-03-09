@@ -329,6 +329,12 @@ Both AI generation features now use real HTTP crawling:
 
 Both use the same crawling logic (`fetchSiteIntelligence`) and the same AI model (Google Gemini 3 Flash).
 
+<p align="center">
+  <img src="https://i.imgur.com/TzVpjoW.png" alt="Protected Sites Management Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Protected Sites Management — Registered origin server with active status, WAF proxy endpoint URL, SSL indicator, and blocked threat counter.</em></p>
+
 ---
 
 ## WAF Proxy — Reverse Proxy Engine
