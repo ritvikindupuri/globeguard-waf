@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles } from 'lucide-react';
+import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
