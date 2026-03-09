@@ -261,6 +261,26 @@ export default function AIDetection() {
         </p>
       </div>
 
+      {/* Worker Domain Config */}
+      <div className="glass-card rounded-xl p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Link className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Cloudflare Worker Domain</h3>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Enter your Cloudflare Worker URL so Deflectra can generate direct block page links. This is the <span className="font-mono">*.workers.dev</span> domain (or custom domain) from your Cloudflare dashboard.
+        </p>
+        <Input
+          placeholder="e.g. my-waf.your-subdomain.workers.dev"
+          value={workerDomain}
+          onChange={(e) => saveWorkerDomain(e.target.value)}
+          className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10"
+        />
+        {workerDomain && (
+          <p className="text-[10px] text-accent font-mono">✓ Block page URLs will use: {workerDomain.startsWith('http') ? workerDomain : `https://${workerDomain}`}</p>
+        )}
+      </div>
+
       {/* Custom Attack Simulation */}
       <div className="glass-card rounded-xl p-5 space-y-4 border border-primary/20">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
