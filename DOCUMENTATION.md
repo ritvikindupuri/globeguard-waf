@@ -564,6 +564,12 @@ The test request is sent to the `analyze-threat` edge function, which calls Gemi
 - **Explanation** — AI-generated reasoning
 - **Indicators** — Specific suspicious patterns found
 
+<p align="center">
+  <img src="https://i.imgur.com/lRJUOZi.png" alt="AI Detection Simulation Interface" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenarios and manual request builder for testing WAF detection against a protected site.</em></p>
+
 ### Recent AI Detections
 
 Shows the 10 most recent entries from `threat_logs` with:
