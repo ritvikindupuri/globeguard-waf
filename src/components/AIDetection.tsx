@@ -238,6 +238,13 @@ export default function AIDetection() {
     return s === 'critical' ? 'text-threat-critical' : s === 'high' ? 'text-threat-high' : s === 'medium' ? 'text-threat-medium' : 'text-threat-low';
   };
 
+  const buildBlockPageUrl = (path: string) => {
+    const base = workerDomain.trim().replace(/\/$/, '');
+    if (!base) return null;
+    const cleanPath = path?.startsWith('/') ? path : `/${path || ''}`;
+    return `${base.startsWith('http') ? base : `https://${base}`}${cleanPath}`;
+  };
+
   const AIBadge = () => (
     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/20 text-primary border border-primary/30">
       <Sparkles className="w-2.5 h-2.5" />
