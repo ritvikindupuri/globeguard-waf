@@ -56,7 +56,7 @@ The application features a full management dashboard with a 3D Mapbox threat glo
 |--------|-------|
 | Protected Sites | Unlimited per user |
 | Rule Engine | Regex with priority ordering |
-| AI Model | Google Gemini 3 Flash |
+| AI Model | Google Gemini 3.1 Pro |
 | Rate Limiting | Per-IP, per-path, configurable windows |
 | JWT Validation | Decode + expiry check |
 | Schema Validation | JSON structure + size limits |
