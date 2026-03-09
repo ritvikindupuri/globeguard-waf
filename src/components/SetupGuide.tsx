@@ -233,14 +233,17 @@ location /api/ {
               <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
                 <p className="text-xs font-semibold text-foreground mb-1">🛡️ Test the Block Page</p>
                 <p className="text-[11px] text-muted-foreground">
-                  After deploying your Cloudflare Worker, try a malicious request to verify the WAF is working:
+                  After deploying your Cloudflare Worker, visit this URL to trigger Deflectra's AI detection and see the branded block page:
                 </p>
                 <CopyBlock
-                  label="SQL Injection Test URL"
-                  code={`https://your-worker.workers.dev/api/users?id=1%20OR%201=1--`}
+                  label="Test URL — triggers AI Detection"
+                  code={`https://your-worker.workers.dev/api/admin/dump-database`}
                 />
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  If the WAF detects the SQL injection, you should see the <span className="text-foreground font-medium">branded Deflectra block page</span> instead of your site content.
+                  Replace <code className="text-foreground bg-muted px-1 rounded text-[10px]">your-worker</code> with your Cloudflare Worker subdomain. The AI engine will detect this as a <span className="text-foreground font-medium">data exfiltration attempt</span> and return the Deflectra block page.
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                  ⚠️ Note: Cloudflare's free plan blocks obvious SQLi/XSS payloads in URLs before they reach your Worker. Use paths like <code className="text-foreground bg-muted px-1 rounded text-[10px]">/api/admin/dump-database</code> or <code className="text-foreground bg-muted px-1 rounded text-[10px]">/api/admin/export-users</code> to test — these bypass Cloudflare's edge but trigger Deflectra's AI.
                 </p>
               </div>
             </div>
