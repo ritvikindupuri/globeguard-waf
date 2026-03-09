@@ -5,6 +5,160 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/**
+ * Fetches the target site and extracts technical intelligence for WAF configuration.
+ * 
+ * This function performs REAL HTTP crawling of the target site to discover:
+ * - Technology stack (React, Vue, Next.js, Supabase, etc.)
+ * - API endpoints (from script sources, meta tags, inline scripts)
+ * - Authentication patterns
+ * - Third-party integrations
+ * 
+ * @param siteUrl - The URL to analyze
+ * @returns Object containing extracted site intelligence
+ */
+async function fetchSiteIntelligence(siteUrl: string): Promise<{
+  html: string;
+  technologies: string[];
+  apiEndpoints: string[];
+  metaTags: Record<string, string>;
+  scriptSources: string[];
+  linkHrefs: string[];
+  formActions: string[];
+  rawInlineScripts: string[];
+}> {
+  console.log(`[Site Crawler] Fetching: ${siteUrl}`);
+  
+  const result = {
+    html: "",
+    technologies: [] as string[],
+    apiEndpoints: [] as string[],
+    metaTags: {} as Record<string, string>,
+    scriptSources: [] as string[],
+    linkHrefs: [] as string[],
+    formActions: [] as string[],
+    rawInlineScripts: [] as string[],
+  };
+
+  try {
+    const response = await fetch(siteUrl, {
+      headers: {
+        "User-Agent": "Deflectra-WAF-Crawler/1.0 (Security Analysis)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) {
+      console.warn(`[Site Crawler] HTTP ${response.status} for ${siteUrl}`);
+      return result;
+    }
+
+    const html = await response.text();
+    result.html = html.substring(0, 50000); // Limit to 50KB for LLM context
+
+    // Extract meta tags
+    const metaRegex = /<meta\s+(?:[^>]*?\s)?(?:name|property)=["']([^"']+)["'][^>]*?\scontent=["']([^"']+)["'][^>]*>/gi;
+    let metaMatch;
+    while ((metaMatch = metaRegex.exec(html)) !== null) {
+      result.metaTags[metaMatch[1]] = metaMatch[2];
+    }
+
+    // Extract script sources
+    const scriptSrcRegex = /<script[^>]+src=["']([^"']+)["']/gi;
+    let scriptMatch;
+    while ((scriptMatch = scriptSrcRegex.exec(html)) !== null) {
+      result.scriptSources.push(scriptMatch[1]);
+    }
+
+    // Extract inline scripts (limited)
+    const inlineScriptRegex = /<script[^>]*>([^<]{10,2000})<\/script>/gi;
+    let inlineMatch;
+    while ((inlineMatch = inlineScriptRegex.exec(html)) !== null && result.rawInlineScripts.length < 5) {
+      result.rawInlineScripts.push(inlineMatch[1].substring(0, 500));
+    }
+
+    // Extract link hrefs
+    const linkRegex = /<a[^>]+href=["']([^"'#][^"']*)["']/gi;
+    let linkMatch;
+    while ((linkMatch = linkRegex.exec(html)) !== null && result.linkHrefs.length < 50) {
+      result.linkHrefs.push(linkMatch[1]);
+    }
+
+    // Extract form actions
+    const formRegex = /<form[^>]+action=["']([^"']+)["']/gi;
+    let formMatch;
+    while ((formMatch = formRegex.exec(html)) !== null) {
+      result.formActions.push(formMatch[1]);
+    }
+
+    // Technology detection
+    const techPatterns: [RegExp, string][] = [
+      [/react/i, "React"],
+      [/vue\.?js|vue@/i, "Vue.js"],
+      [/angular/i, "Angular"],
+      [/next\.?js|_next\//i, "Next.js"],
+      [/nuxt/i, "Nuxt.js"],
+      [/svelte/i, "Svelte"],
+      [/supabase/i, "Supabase"],
+      [/firebase/i, "Firebase"],
+      [/vercel/i, "Vercel"],
+      [/netlify/i, "Netlify"],
+      [/cloudflare/i, "Cloudflare"],
+      [/wordpress|wp-content/i, "WordPress"],
+      [/shopify/i, "Shopify"],
+      [/stripe/i, "Stripe"],
+      [/auth0/i, "Auth0"],
+      [/clerk/i, "Clerk"],
+      [/tailwind/i, "Tailwind CSS"],
+      [/bootstrap/i, "Bootstrap"],
+      [/graphql/i, "GraphQL"],
+      [/trpc/i, "tRPC"],
+      [/prisma/i, "Prisma"],
+      [/mongodb|mongo/i, "MongoDB"],
+      [/postgresql|postgres/i, "PostgreSQL"],
+      [/aws|amazonaws/i, "AWS"],
+      [/google-analytics|gtag/i, "Google Analytics"],
+      [/sentry/i, "Sentry"],
+      [/datadog/i, "Datadog"],
+    ];
+
+    const htmlLower = html.toLowerCase();
+    for (const [pattern, tech] of techPatterns) {
+      if (pattern.test(htmlLower) || result.scriptSources.some(s => pattern.test(s))) {
+        result.technologies.push(tech);
+      }
+    }
+
+    // API endpoint discovery
+    const apiPatterns = [
+      /\/api\/[a-z0-9\/_-]+/gi,
+      /\/functions\/v1\/[a-z0-9\/_-]+/gi,
+      /\/rest\/v1\/[a-z0-9\/_-]+/gi,
+      /\/graphql/gi,
+      /\/v[0-9]+\/[a-z0-9\/_-]+/gi,
+      /\/auth\/[a-z0-9\/_-]+/gi,
+    ];
+
+    for (const pattern of apiPatterns) {
+      const matches = html.match(pattern);
+      if (matches) {
+        result.apiEndpoints.push(...matches);
+      }
+    }
+
+    // Deduplicate
+    result.apiEndpoints = [...new Set(result.apiEndpoints)];
+    result.technologies = [...new Set(result.technologies)];
+
+    console.log(`[Site Crawler] Discovered: ${result.technologies.length} techs, ${result.apiEndpoints.length} endpoints`);
+  } catch (error) {
+    console.error(`[Site Crawler] Error fetching ${siteUrl}:`, error);
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -28,9 +182,12 @@ serve(async (req) => {
       });
     }
 
+    // STEP 1: Actually fetch and analyze the target site
+    const siteIntelligence = await fetchSiteIntelligence(site_url);
+
     // Build the system prompt based on context and field
     const systemPrompt = buildSystemPrompt(context, field);
-    const userPrompt = buildUserPrompt(site_url, context, field);
+    const userPrompt = buildUserPrompt(site_url, context, field, siteIntelligence);
 
     // Define the tool based on context and field
     const tool = buildTool(context, field);
@@ -73,7 +230,15 @@ serve(async (req) => {
 
     const result = JSON.parse(toolCall.function.arguments);
 
-    return new Response(JSON.stringify({ success: true, data: result }), {
+    // Include discovered intelligence in response for transparency
+    return new Response(JSON.stringify({ 
+      success: true, 
+      data: result,
+      discovered: {
+        technologies: siteIntelligence.technologies,
+        endpoints: siteIntelligence.apiEndpoints.slice(0, 10),
+      }
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
@@ -86,19 +251,20 @@ serve(async (req) => {
 });
 
 function buildSystemPrompt(context: string, field?: string): string {
-  const base = `You are a security expert that deeply analyzes web applications to generate accurate WAF configurations.
+  const base = `You are a security expert that analyzes REAL crawl data from web applications to generate accurate WAF configurations.
 
 CRITICAL INSTRUCTIONS:
-1. You MUST actually analyze the provided URL - imagine crawling the site, discovering its tech stack, endpoints, and architecture
-2. Base ALL suggestions on realistic patterns for that specific type of application
-3. Detect: frontend framework, backend language, API style (REST/GraphQL), database type, auth mechanism
-4. Generate configurations that would actually protect THIS specific application
-5. Do NOT use generic placeholder values - everything must be specific to what you discover about the app
+1. You have been provided with ACTUAL data extracted from crawling the target site
+2. Use the discovered technologies, endpoints, and patterns to generate highly specific configurations
+3. Do NOT make up generic patterns - base everything on the real crawl data provided
+4. If the crawl data is limited, make reasonable inferences based on detected technologies
 
-When analyzing, consider:
-- Common endpoints for the detected framework (e.g., /api/auth/* for Next.js, /functions/v1/* for Supabase)
-- Technology-specific vulnerabilities (e.g., NoSQL injection for MongoDB apps, template injection for Django)
-- The app's purpose (portfolio, e-commerce, SaaS, etc.) to tailor protection levels
+The crawl data includes:
+- Detected technology stack (frameworks, hosting, databases)
+- Discovered API endpoints
+- Meta tags and site configuration
+- Script sources and inline scripts
+- Form actions and links
 `;
 
   if (field) {
@@ -108,62 +274,96 @@ When analyzing, consider:
   return base;
 }
 
-function buildUserPrompt(site_url: string, context: string, field?: string): string {
+function buildUserPrompt(
+  site_url: string, 
+  context: string, 
+  field: string | undefined,
+  intel: Awaited<ReturnType<typeof fetchSiteIntelligence>>
+): string {
   const fieldNote = field ? ` Generate ONLY the "${field}" field value.` : "";
   
+  // Build the site intelligence summary
+  const intelSummary = `
+=== REAL CRAWL DATA FOR ${site_url} ===
+
+DETECTED TECHNOLOGIES: ${intel.technologies.length > 0 ? intel.technologies.join(", ") : "Unable to detect (site may use SSR or be protected)"}
+
+DISCOVERED API ENDPOINTS:
+${intel.apiEndpoints.length > 0 ? intel.apiEndpoints.map(e => `  - ${e}`).join("\n") : "  - No API endpoints discovered in HTML"}
+
+META TAGS:
+${Object.keys(intel.metaTags).length > 0 ? Object.entries(intel.metaTags).slice(0, 10).map(([k, v]) => `  - ${k}: ${v}`).join("\n") : "  - No meta tags found"}
+
+SCRIPT SOURCES (sample):
+${intel.scriptSources.slice(0, 5).map(s => `  - ${s}`).join("\n") || "  - No external scripts"}
+
+FORM ACTIONS:
+${intel.formActions.length > 0 ? intel.formActions.map(f => `  - ${f}`).join("\n") : "  - No forms discovered"}
+
+LINK HREFS (sample):
+${intel.linkHrefs.slice(0, 10).map(l => `  - ${l}`).join("\n") || "  - No links discovered"}
+
+=== END CRAWL DATA ===
+`;
+
   switch (context) {
     case "ai_detection":
-      return `Deeply analyze this web application: ${site_url}
+      return `${intelSummary}
 
-Discover its endpoints, API routes, authentication flows, and typical request patterns.
-Generate realistic attack simulation scenarios that would actually test THIS specific app's defenses.${fieldNote}
+Based on the REAL crawl data above, generate attack simulation scenarios that would test THIS specific app's defenses.${fieldNote}
 
 For each scenario:
-- path: Use real endpoint patterns you discover (e.g., /api/users, /functions/v1/chatbot)
-- method: Match the likely HTTP method for that endpoint
-- body: Craft attack payloads that target the expected body schema
-- user_agent: Use realistic attacker user agents`;
+- path: Use ACTUAL endpoint patterns discovered, or patterns typical of the detected technologies
+- method: Match the likely HTTP method for that endpoint type
+- body: Craft attack payloads targeting schemas the app would expect
+- user_agent: Use realistic attacker user agents
+
+IMPORTANT: If Supabase/functions/v1 endpoints were detected, include attacks targeting those. If React was detected, include XSS attacks targeting React patterns.`;
 
     case "rate_limiting":
-      return `Deeply analyze this web application: ${site_url}
+      return `${intelSummary}
 
-Discover its API endpoints, authentication routes, resource-intensive operations, and public vs protected paths.
-Generate rate limiting rules that protect THIS specific app's sensitive endpoints.${fieldNote}
+Based on the REAL crawl data above, generate rate limiting rules that protect THIS specific app's sensitive endpoints.${fieldNote}
 
 For each rule:
 - name: Descriptive name for the rule
-- path: Actual endpoint paths from the app (use wildcards for patterns)
+- path: Use ACTUAL endpoint paths discovered, or typical paths for the detected stack
 - max_requests: Appropriate limit based on the endpoint's purpose
 - window_seconds: Time window (be stricter for auth endpoints)
-- action: block/challenge/throttle based on severity`;
+- action: block/challenge/throttle based on severity
+
+IMPORTANT: If auth/login endpoints were discovered, apply strict limits. If Supabase functions were detected, protect those.`;
 
     case "api_shield":
-      return `Deeply analyze this web application: ${site_url}
+      return `${intelSummary}
 
-Discover its REST/GraphQL endpoints, which ones accept JSON bodies, which require authentication, and which are rate-sensitive.
-Generate API Shield configurations for the endpoints you discover.${fieldNote}
+Based on the REAL crawl data above, generate API Shield configurations for the endpoints you see.${fieldNote}
 
 For each endpoint:
-- method: The HTTP method used (detect from endpoint purpose)
-- path: The actual endpoint path
+- method: The HTTP method used (infer from endpoint naming patterns)
+- path: The ACTUAL endpoint path from crawl data
 - jwt_inspection: Enable for authenticated routes
-- schema_validation: Enable for endpoints accepting JSON bodies
-- rate_limited: Enable for expensive operations`;
+- schema_validation: Enable for endpoints likely accepting JSON bodies
+- rate_limited: Enable for expensive operations
+
+IMPORTANT: Use the discovered API endpoints. If none were found, generate endpoints typical of the detected tech stack.`;
 
     case "rule_engine":
-      return `Deeply analyze this web application: ${site_url}
+      return `${intelSummary}
 
-Detect the technology stack (frontend, backend, database, hosting) and generate WAF rules targeting vulnerabilities specific to that stack.${fieldNote}
+Based on the REAL crawl data above, generate WAF rules targeting vulnerabilities specific to the detected stack.${fieldNote}
 
 For each rule:
 - name: Descriptive attack name
 - pattern: Regex pattern that catches attacks against the detected stack
 - category: sqli/xss/rce/lfi/custom
-- severity: Based on potential impact
-- description: Why this rule matters for this specific app`;
+- severity: Based on potential impact to this specific app
+- description: Why this rule matters for this specific app
+
+IMPORTANT: Tailor rules to the detected technologies. React apps need XSS protection. Supabase apps need SQL injection protection. etc.`;
 
     default:
-      return `Analyze ${site_url} and generate appropriate security configurations.${fieldNote}`;
+      return `${intelSummary}\n\nAnalyze the crawl data and generate appropriate security configurations.${fieldNote}`;
   }
 }
 
@@ -180,7 +380,7 @@ function buildTool(context: string, field?: string): any {
         type: "function",
         function: {
           name: "generate_attack_scenarios",
-          description: "Generate attack simulation scenarios based on deep analysis of the target application",
+          description: "Generate attack simulation scenarios based on real crawl data from the target application",
           parameters: {
             type: "object",
             properties: {
@@ -216,7 +416,7 @@ function buildTool(context: string, field?: string): any {
         type: "function",
         function: {
           name: "generate_rate_limit_rules",
-          description: "Generate rate limiting rules based on deep analysis of the target application",
+          description: "Generate rate limiting rules based on real crawl data from the target application",
           parameters: {
             type: "object",
             properties: {
@@ -237,7 +437,7 @@ function buildTool(context: string, field?: string): any {
               detected_endpoints: {
                 type: "array",
                 items: { type: "string" },
-                description: "List of discovered endpoints",
+                description: "List of discovered endpoints from crawl",
               },
             },
             required: ["rules", "detected_endpoints"],
@@ -250,7 +450,7 @@ function buildTool(context: string, field?: string): any {
         type: "function",
         function: {
           name: "generate_api_endpoints",
-          description: "Generate API Shield endpoint configurations based on deep analysis",
+          description: "Generate API Shield endpoint configurations based on real crawl data",
           parameters: {
             type: "object",
             properties: {
@@ -283,7 +483,7 @@ function buildTool(context: string, field?: string): any {
         type: "function",
         function: {
           name: "generate_waf_rules",
-          description: "Generate WAF rules tailored to the detected technology stack",
+          description: "Generate WAF rules tailored to the technology stack discovered in crawl data",
           parameters: {
             type: "object",
             properties: {
@@ -305,7 +505,7 @@ function buildTool(context: string, field?: string): any {
               detected_vulnerabilities: {
                 type: "array",
                 items: { type: "string" },
-                description: "Potential vulnerabilities detected in the stack",
+                description: "Potential vulnerabilities based on detected stack",
               },
             },
             required: ["rules", "detected_vulnerabilities"],
@@ -329,12 +529,12 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Generate a realistic attack path based on discovered endpoints",
+            description: "Generate a realistic attack path based on discovered endpoints from crawl",
             parameters: {
               type: "object",
               properties: {
                 value: { type: "string", description: "The attack path (e.g., /api/users?id=1 OR 1=1)" },
-                reasoning: { type: "string", description: "Why this path targets the specific app" },
+                reasoning: { type: "string", description: "Why this path targets the specific app based on crawl data" },
               },
               required: ["value", "reasoning"],
             },
@@ -346,7 +546,7 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Generate a malicious request body",
+            description: "Generate a malicious request body targeting detected technology",
             parameters: {
               type: "object",
               properties: {
@@ -366,7 +566,7 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Generate a path pattern for rate limiting",
+            description: "Generate a path pattern for rate limiting based on discovered endpoints",
             parameters: {
               type: "object",
               properties: {
@@ -399,7 +599,7 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Determine appropriate request limit",
+            description: "Determine appropriate request limit based on endpoint type",
             parameters: {
               type: "object",
               properties: {
@@ -419,7 +619,7 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Generate an API endpoint path based on deep app analysis",
+            description: "Generate an API endpoint path based on crawl data",
             parameters: {
               type: "object",
               properties: {
@@ -457,7 +657,7 @@ function buildFieldTool(context: string, field: string): any {
           type: "function",
           function: {
             name: fieldName,
-            description: "Generate a regex pattern for attack detection",
+            description: "Generate a regex pattern for attack detection targeting the detected stack",
             parameters: {
               type: "object",
               properties: {
@@ -488,16 +688,16 @@ function buildFieldTool(context: string, field: string): any {
       break;
   }
 
-  // Fallback generic field tool
+  // Fallback for any other field
   return {
     type: "function",
     function: {
       name: fieldName,
-      description: `Generate value for ${field} field`,
+      description: `Generate the ${field} field value based on crawl data`,
       parameters: {
         type: "object",
         properties: {
-          value: { type: "string", description: `Value for ${field}` },
+          value: { type: "string", description: `The ${field} value` },
         },
         required: ["value"],
       },
