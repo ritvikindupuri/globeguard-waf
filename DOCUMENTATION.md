@@ -584,8 +584,6 @@ Shows the 10 most recent entries from `threat_logs` with:
   - 30-59%: Suspicious, possible false positive
   - 0-29%: Probably safe
 
-### Recent AI Detections UI
-
 <p align="center">
   <img src="https://i.imgur.com/UwFrHm4.png" alt="Recent AI Detections Panel" width="900" />
 </p>
