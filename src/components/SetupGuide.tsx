@@ -51,6 +51,7 @@ export default function SetupGuide() {
   const [selectedSite, setSelectedSite] = useState<string>('');
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'your-project-id';
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '<YOUR_ANON_KEY>';
   const proxyBase = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
   useEffect(() => {
