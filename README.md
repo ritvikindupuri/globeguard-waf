@@ -2,6 +2,8 @@
 
 An AI-powered Web Application Firewall (WAF) that operates as a Layer 7 reverse proxy, combining regex-based pattern matching, Google Gemini AI threat classification, JWT validation, schema enforcement, and per-IP rate limiting to protect web applications from common attacks.
 
+> 📖 **[Full Technical Documentation →](DOCUMENTATION.md)**
+
 Originally built to protect [https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/), but **anyone can create an account** and connect their own applications for WAF protection.
 
 ## System Architecture
