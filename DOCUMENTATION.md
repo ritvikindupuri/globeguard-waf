@@ -188,7 +188,7 @@ The main dashboard (`/`) provides a real-time overview of the WAF's status with 
 | Attack Sources | Unique `source_country` values in `threat_logs` | Number of countries attacks originated from |
 | Avg Response | — | Placeholder for proxy latency (future feature) |
 | Protected Sites | `protected_sites` count | Number of registered origin servers |
-| AI Engine | Static | Shows "Gemini v3 Flash" indicator |
+| AI Engine | Static | Shows "Gemini 3.1 Pro" indicator |
 
 Below the stats, the dashboard displays:
 - **Live Threat Map** — A 3D Mapbox globe showing threat locations
