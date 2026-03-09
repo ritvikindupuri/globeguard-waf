@@ -252,29 +252,70 @@ The Protected Sites page (`/sites`) allows users to register origin servers that
 - **Copy to Clipboard** — One-click copy of the proxy URL
 - **SSL Status** — Shows SSL validity indicator
 - **Threats Blocked Counter** — Displays total blocked requests per site
-- **AI Auto-Setup** — One-click button that invokes the `auto-setup-waf` edge function, which uses AI to scan the site and auto-generate WAF rules tailored to its technology stack
+- **AI Auto-Setup with Real Site Crawling** — One-click button that invokes the `auto-setup-waf` edge function, which performs a **live HTTP crawl** of the target site to detect technologies, discover API endpoints, and extract metadata before using AI to generate tailored WAF rules, rate limits, and API monitoring configs
 - **Delete Site** — Remove a site from protection
 
-### AI Auto-Setup Flow
+### AI Auto-Setup Flow (with Real Crawling)
+
+When a user adds a new site, the `auto-setup-waf` edge function performs a **real HTTP fetch** of the target URL before invoking the AI. This ensures all generated rules are based on actual site content, not guesses.
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant UI as Site Manager
     participant EF as auto-setup-waf
-    participant AI as Gemini 3.1 Pro
+    participant SITE as Target Website
+    participant AI as Gemini 3 Flash
     participant DB as Database
 
-    U->>UI: Click AI Auto-Setup
-    UI->>EF: invoke with site URL
-    EF->>AI: Analyze site tech stack (Gemini 3.1 Pro)
-    AI-->>EF: Recommended rules
-    EF->>DB: Insert WAF rules
-    EF-->>UI: Setup complete
-    UI->>U: Show generated rules
+    U->>UI: Add site URL
+    UI->>EF: invoke with site URL, name, ID
+
+    Note over EF: STEP 1: Real HTTP Crawl
+    EF->>SITE: HTTP GET with Deflectra-WAF-Crawler/1.0
+    SITE-->>EF: HTML response
+    EF->>EF: Extract technologies (25+ patterns)
+    EF->>EF: Discover API endpoints (/api/*, /functions/v1/*, etc.)
+    EF->>EF: Parse meta tags, script sources, forms, links
+
+    Note over EF: STEP 2: AI Analysis with Crawl Data
+    EF->>AI: Send real crawl data + site context
+    AI-->>EF: Structured WAF config (rules, rate limits, endpoints)
+
+    Note over EF: STEP 3: Database Insertion
+    EF->>DB: Insert WAF rules (tailored to detected stack)
+    EF->>DB: Insert rate limit rules (for discovered endpoints)
+    EF->>DB: Insert API endpoint configs
+    EF->>DB: Update site status → "active"
+    EF-->>UI: Setup complete + discovered technologies
+    UI->>U: Show generated rules count + detected app type
 ```
 
-<p align="center"><em>Figure 1: AI Auto-Setup Flow — How clicking the auto-setup button triggers AI analysis of the target site and generates tailored WAF rules.</em></p>
+<p align="center"><em>Figure 1: AI Auto-Setup Flow — Real HTTP crawling of the target site followed by AI-powered generation of WAF rules, rate limits, and API monitoring configs based on actual discovered content.</em></p>
+
+### What the Auto-Setup Crawler Discovers
+
+The `auto-setup-waf` function uses the same `fetchSiteIntelligence()` crawler as the per-field AI generation. It extracts:
+
+| Data | Example | How It's Used |
+|------|---------|---------------|
+| Technologies | React, Supabase, Stripe | Generates stack-specific attack rules (e.g., Supabase SQLi, React XSS) |
+| API Endpoints | `/functions/v1/chatbot`, `/api/auth/login` | Creates rate limits and API Shield configs for actual paths |
+| Meta Tags | `og:type`, `description` | Identifies site purpose (SPA, e-commerce, blog) |
+| Script Sources | `/_next/static/`, `cdn.stripe.com` | Detects hosting platform and payment integrations |
+| Form Actions | `/api/contact`, `/submit` | Protects POST endpoints with schema validation |
+| Links | Internal navigation paths | Maps site structure for comprehensive coverage |
+
+### Auto-Setup vs Per-Field Generation
+
+Both AI generation features now use real HTTP crawling:
+
+| Feature | Trigger | Edge Function | What It Generates |
+|---------|---------|---------------|-------------------|
+| **Auto-Setup** | Adding a new site | `auto-setup-waf` | Full WAF config: rules + rate limits + API endpoints (saved to DB automatically) |
+| **Per-Field AI** | ✨ sparkle buttons on forms | `auto-generate-fields` | Individual form fields or full form values (populated in UI for review before saving) |
+
+Both use the same crawling logic (`fetchSiteIntelligence`) and the same AI model (Google Gemini 3 Flash).
 
 ---
 
@@ -1114,9 +1155,9 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: AI Auto-Fill Flow — Real HTTP crawling followed by AI analysis for accurate configuration generation.</em></p>
 
-### Site Intelligence Extraction
+### Site Intelligence Extraction (Shared Crawler)
 
-The `auto-generate-fields` edge function performs a **real HTTP fetch** of the target site and extracts the following intelligence:
+Both `auto-setup-waf` (site onboarding) and `auto-generate-fields` (per-field AI generation) use the same `fetchSiteIntelligence()` crawler function. This function performs a **real HTTP fetch** of the target site and extracts the following intelligence:
 
 | Data Extracted | How It's Used |
 |----------------|---------------|
