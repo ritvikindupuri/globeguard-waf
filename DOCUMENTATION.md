@@ -430,7 +430,7 @@ flowchart TD
     THREAT_LOG --> REALTIME[Push to Dashboard]
 ```
 
-<p align="center"><em>Figure: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
+<p align="center"><em>Figure 1: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
 
 #### Step-by-Step AI Analysis:
 
