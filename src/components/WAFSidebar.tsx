@@ -1,10 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { 
   Globe, FileCode, Activity, 
-  Server, Settings, Zap, Brain, Lock, LogOut, BookOpen
+  Server, Settings, Zap, Brain, Lock, LogOut, BookOpen, Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import deflectraLogo from '@/assets/deflectra-icon.png';
 
 const navItems = [
@@ -16,6 +18,7 @@ const navItems = [
   { to: '/api-protection', icon: Lock, label: 'API Shield' },
   { to: '/ai-detection', icon: Brain, label: 'AI Detection' },
   { to: '/rate-limiting', icon: Zap, label: 'Rate Limiting' },
+  { to: '/notifications', icon: Bell, label: 'Notifications', hasBadge: true },
   { to: '/setup-guide', icon: BookOpen, label: 'Setup Guide' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
@@ -23,6 +26,22 @@ const navItems = [
 export default function WAFSidebar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('read', false)
+        .eq('dismissed', false);
+      setUnreadCount(count || 0);
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col fixed left-0 top-0 z-40">
@@ -64,7 +83,12 @@ export default function WAFSidebar() {
                 "w-4 h-4 transition-colors",
                 isActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-white"
               )} />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium flex-1">{item.label}</span>
+              {(item as any).hasBadge && unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </NavLink>
           );
         })}
