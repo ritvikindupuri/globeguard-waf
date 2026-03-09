@@ -46,7 +46,7 @@ Unlike traditional WAFs that rely solely on static regex rules, Deflectra combin
 2. **AI Threat Classification** — Google Gemini 3.1 Pro analyzes requests in real-time and classifies them as safe or malicious with confidence scores and geographic origin estimation.
 3. **API Shield Enforcement** — JWT token validation, JSON schema validation, and per-IP rate limiting enforced at the proxy layer.
 
-Deflectra was originally built to protect the developer's personal portfolio website ([https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/)), where it actively inspects all API calls to edge functions (chatbot, contact form, authentication logging, visitor alerts). However, **anyone can create an account** on Deflectra and connect their own web applications for WAF protection.
+**Anyone can create an account** on Deflectra and connect their own web applications for WAF protection. The AI-powered onboarding system automatically crawls your site, detects your tech stack, and generates tailored WAF rules, rate limits, and API monitoring configurations.
 
 The application features a full management dashboard with a 3D Mapbox threat globe, real-time WebSocket notifications, traffic analytics, and a branded block page that is served to attackers when requests are rejected.
 
