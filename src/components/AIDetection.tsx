@@ -133,6 +133,64 @@ export default function AIDetection() {
     }
   };
 
+  const runCustomAttack = async () => {
+    if (!selectedSite) { toast.error('Select a protected site first'); return; }
+    if (!customAttackInput.trim()) { toast.error('Describe the attack you want to simulate'); return; }
+
+    setRunningCustomAttack(true);
+    setLastResult(null);
+
+    try {
+      // Step 1: Generate attack scenario from user's description
+      const { data: genData, error: genError } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'custom_attack', field: customAttackInput.trim() },
+      });
+
+      if (genError) throw genError;
+      if (!genData?.success || !genData?.data?.scenario) throw new Error('AI failed to generate attack scenario');
+
+      const scenario = genData.data.scenario;
+      
+      // Auto-fill the form fields
+      setIncomingPath(scenario.path || '');
+      setIncomingMethod(scenario.method || 'GET');
+      setIncomingBody(scenario.body || '');
+      setIncomingUserAgent(scenario.user_agent || '');
+      setAiGeneratedFields({ path: true, method: true, body: true, user_agent: true });
+
+      toast.info(`Generated: ${scenario.attack_name}`, { description: scenario.explanation });
+
+      // Step 2: Automatically run the analysis
+      const fullUrl = `${selectedSite.url}${(scenario.path || '/').startsWith('/') ? '' : '/'}${scenario.path || '/'}`;
+      const { data, error } = await supabase.functions.invoke('analyze-threat', {
+        body: {
+          request_data: {
+            url: fullUrl,
+            path: scenario.path || '/',
+            method: scenario.method || 'GET',
+            body: scenario.body || undefined,
+            user_agent: scenario.user_agent || 'Mozilla/5.0 (compatible; bot/1.0)',
+            ip: incomingIp || `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+            protected_site: selectedSite.url,
+            protected_site_name: selectedSite.name,
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) { toast.error(data.error); return; }
+      
+      setLastResult(data.analysis);
+      if (data.analysis.is_threat) toast.warning(`Threat detected: ${data.analysis.threat_type}`);
+      else toast.success('Request appears clean — WAF did not flag this');
+      loadRecentThreats();
+    } catch (error: any) {
+      toast.error(error.message || 'Attack simulation failed');
+    } finally {
+      setRunningCustomAttack(false);
+    }
+  };
+
   const analyzeRequest = async () => {
     if (!selectedSite) { toast.error('Add a protected site first'); return; }
     if (!incomingPath) { toast.error('Enter the request path'); return; }
