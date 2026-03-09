@@ -350,11 +350,13 @@ Loads all enabled rules from `waf_rules` ordered by priority:
 - Rules are processed in priority order (lower number = higher priority)
 
 **Stage 7 — AI Analysis:**
-If no rule matched, the request is sent to Google Gemini 3 Flash for classification:
-- Sends method, path, body (first 500 chars), user-agent, and IP
-- Uses structured tool calling to get a JSON response with: `is_threat`, `threat_type`, `severity`, `confidence`, `reason`, `source_lat`, `source_lng`, `source_country`
-- If the AI classifies the request as a threat with action "blocked", it's rejected
-- Geographic coordinates are used for threat map visualization
+If no regex rule matched, the request is sent to **Google Gemini 3.1 Pro** for deep threat classification:
+- The AI receives the full request context: method, path, body (first 500 chars), user-agent, and source IP
+- Uses structured **tool calling** to guarantee a parseable JSON response containing: `is_threat`, `threat_type`, `severity`, `confidence`, `reason`, `source_lat`, `source_lng`, `source_country`
+- The AI evaluates for 10+ threat categories: SQLi, XSS, RCE, LFI, bot abuse, rate abuse, credential stuffing, API abuse, CSRF, and malformed requests
+- Returns a confidence score (0-100%) and a human-readable explanation of why the request was flagged or allowed
+- If classified as a threat with action "blocked", the request is rejected
+- Geographic coordinates from the AI response are used for threat map visualization
 
 **Stage 8 — Logging & Response:**
 - All threats (blocked or logged) are recorded in `threat_logs` with full request metadata
