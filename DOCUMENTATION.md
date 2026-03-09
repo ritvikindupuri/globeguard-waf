@@ -262,7 +262,7 @@ sequenceDiagram
     participant U as User
     participant UI as Site Manager
     participant EF as auto-setup-waf
-    participant AI as Gemini 3 Flash
+    participant AI as Gemini 3.1 Pro
     participant DB as Database
 
     U->>UI: Click AI Auto-Setup
