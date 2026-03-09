@@ -187,13 +187,13 @@ export default function APIProtection() {
 
   const testEndpoint = async (ep: APIEndpoint) => {
     setTestingId(ep.id);
-    setTestResults(prev => ({ ...prev, [ep.id]: null }));
+    setTestResults(prev => ({ ...prev, [ep.id]: [] }));
 
     try {
       const { data: sitesData } = await supabase.from('protected_sites').select('id, url').limit(1);
       const site = sitesData?.[0];
       if (!site) {
-        setTestResults(prev => ({ ...prev, [ep.id]: { status: 'fail', message: 'No protected site found' } }));
+        setTestResults(prev => ({ ...prev, [ep.id]: [{ name: 'Setup', status: 'fail', method: '-', path: '-', httpStatus: null, severity: 'low', action: 'error', reason: 'No protected site found', sourceIp: '-', responseSnippet: '' }] }));
         return;
       }
 
@@ -203,124 +203,102 @@ export default function APIProtection() {
       const userToken = sessionData?.session?.access_token || anonKey;
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
-      const results: string[] = [];
+      const results: TestResult[] = [];
 
-      // Test 1: Clean request (should pass)
+      const parseWafResponse = (text: string, status: number): Partial<TestResult> => {
+        // Try to extract details from block page HTML
+        const reasonMatch = text.match(/detail-value">([^<]+)<\/span>\s*<\/div>\s*<div class="detail-row"><span class="detail-label">Rule/);
+        const ruleMatch = text.match(/detail-label">Rule<\/span><span class="detail-value">([^<]+)/);
+        const ipMatch = text.match(/detail-label">Your IP<\/span><span class="detail-value">([^<]+)/);
+        const pathMatch = text.match(/detail-label">Path<\/span><span class="detail-value">([^<]+)/);
+        const severityMatch = text.match(/badge\s+(critical|high|medium|low)/);
+        
+        return {
+          httpStatus: status,
+          severity: severityMatch?.[1] || (status === 403 ? 'high' : 'low'),
+          action: status === 403 ? 'blocked' : 'allowed',
+          reason: reasonMatch?.[1] || ruleMatch?.[1] || (status === 403 ? 'Blocked by WAF' : 'Passed through'),
+          sourceIp: ipMatch?.[1] || '-',
+          responseSnippet: text.substring(0, 500),
+        };
+      };
+
+      // Test 1: Clean request
       try {
         const cleanRes = await fetch(
           `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-          {
-            method: ep.method,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-              'apikey': anonKey,
-            },
+          { method: ep.method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
             ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
           }
         );
-        await cleanRes.text();
-        if (cleanRes.status !== 403) {
-          results.push('Clean request ✓ passed');
-        } else {
-          results.push('Clean request ✗ blocked (check JWT settings)');
-        }
-      } catch {
-        results.push('Clean request ✗ network error');
-      }
+        const text = await cleanRes.text();
+        const parsed = parseWafResponse(text, cleanRes.status);
+        results.push({ name: 'Clean Request', status: cleanRes.status !== 403 ? 'pass' : 'blocked', method: ep.method, path: ep.path, ...parsed } as TestResult);
+      } catch { results.push({ name: 'Clean Request', status: 'fail', method: ep.method, path: ep.path, httpStatus: null, severity: 'low', action: 'error', reason: 'Network error', sourceIp: '-', responseSnippet: '' }); }
 
-      // Test 2: SQLi payload (should be blocked)
+      // Test 2: SQLi payload
+      const sqliPath = ep.path + "?id=1' OR '1'='1";
       try {
         const sqliRes = await fetch(
-          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path + "?id=1' OR '1'='1")}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-              'apikey': anonKey,
-            },
+          `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(sqliPath)}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
             body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
           }
         );
-        await sqliRes.text();
-        if (sqliRes.status === 403) {
-          results.push('SQLi attack ✗ blocked');
-        } else {
-          results.push('SQLi attack ✓ passed (not caught)');
-        }
-      } catch {
-        results.push('SQLi attack ✗ blocked');
-      }
+        const text = await sqliRes.text();
+        const parsed = parseWafResponse(text, sqliRes.status);
+        results.push({ name: 'SQL Injection Attack', status: sqliRes.status === 403 ? 'blocked' : 'pass', method: 'POST', path: sqliPath, ...parsed } as TestResult);
+      } catch { results.push({ name: 'SQL Injection Attack', status: 'blocked', method: 'POST', path: sqliPath, httpStatus: null, severity: 'critical', action: 'blocked', reason: 'Request blocked (connection refused)', sourceIp: '-', responseSnippet: '' }); }
 
-      // Test 3: JWT inspection (if enabled — send request without token)
+      // Test 3: No JWT
       if (ep.jwt_inspection) {
         try {
           const noJwtRes = await fetch(
             `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-            {
-              method: ep.method,
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': anonKey,
-              },
+            { method: ep.method, headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
               ...(ep.method === 'POST' ? { body: JSON.stringify({ test: true }) } : {}),
             }
           );
-          await noJwtRes.text();
-          if (noJwtRes.status === 403) {
-            results.push('No-JWT request ✗ blocked');
-          } else {
-            results.push('No-JWT request ✓ passed (JWT not enforced)');
-          }
-        } catch {
-          results.push('No-JWT request ✗ blocked');
-        }
+          const text = await noJwtRes.text();
+          const parsed = parseWafResponse(text, noJwtRes.status);
+          results.push({ name: 'Missing JWT Token', status: noJwtRes.status === 403 ? 'blocked' : 'pass', method: ep.method, path: ep.path, ...parsed } as TestResult);
+        } catch { results.push({ name: 'Missing JWT Token', status: 'blocked', method: ep.method, path: ep.path, httpStatus: null, severity: 'high', action: 'blocked', reason: 'No JWT provided', sourceIp: '-', responseSnippet: '' }); }
       }
 
-      // Test 4: Schema validation (if enabled — send malformed body)
+      // Test 4: Bad JSON
       if (ep.schema_validation && ep.method === 'POST') {
         try {
-          const badBodyRes = await fetch(
+          const badRes = await fetch(
             `${baseUrl}?site_id=${site.id}&path=${encodeURIComponent(ep.path)}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${userToken}`,
-                'apikey': anonKey,
-              },
+            { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`, 'apikey': anonKey },
               body: 'this is not json{{{',
             }
           );
-          await badBodyRes.text();
-          if (badBodyRes.status === 403) {
-            results.push('Bad JSON ✗ blocked');
-          } else {
-            results.push('Bad JSON ✓ passed (schema not enforced)');
-          }
-        } catch {
-          results.push('Bad JSON ✗ blocked');
-        }
+          const text = await badRes.text();
+          const parsed = parseWafResponse(text, badRes.status);
+          results.push({ name: 'Malformed JSON Body', status: badRes.status === 403 ? 'blocked' : 'pass', method: 'POST', path: ep.path, ...parsed } as TestResult);
+        } catch { results.push({ name: 'Malformed JSON Body', status: 'blocked', method: 'POST', path: ep.path, httpStatus: null, severity: 'medium', action: 'blocked', reason: 'Invalid JSON rejected', sourceIp: '-', responseSnippet: '' }); }
       }
 
-      const allPassed = results.every(r => r.includes('✓ passed') || r.includes('✗ blocked'));
-      setTestResults(prev => ({
-        ...prev,
-        [ep.id]: {
-          status: allPassed ? 'pass' : 'fail',
-          message: results.join(' • ')
-        }
-      }));
+      setTestResults(prev => ({ ...prev, [ep.id]: results }));
       toast.success(`${ep.path} — ${results.length} tests completed`);
     } catch (err: any) {
-      setTestResults(prev => ({
-        ...prev,
-        [ep.id]: { status: 'fail', message: err?.message || 'Test failed' }
-      }));
+      setTestResults(prev => ({ ...prev, [ep.id]: [{ name: 'Error', status: 'fail', method: '-', path: ep.path, httpStatus: null, severity: 'low', action: 'error', reason: err?.message || 'Test failed', sourceIp: '-', responseSnippet: '' }] }));
     } finally {
       setTestingId(null);
     }
+  };
+
+  const severityColor = (s: string) => {
+    return s === 'critical' ? 'text-threat-critical' : s === 'high' ? 'text-threat-high' : s === 'medium' ? 'text-threat-medium' : 'text-threat-low';
+  };
+
+  const workerDomain = typeof window !== 'undefined' ? localStorage.getItem('deflectra_worker_domain') || '' : '';
+  const buildBlockPageUrl = (path: string) => {
+    const base = workerDomain.trim().replace(/\/$/, '');
+    if (!base) return null;
+    const cleanPath = path?.startsWith('/') ? path : `/${path || ''}`;
+    return `${base.startsWith('http') ? base : `https://${base}`}${cleanPath}`;
   };
 
   const totalBlocked = endpoints.reduce((s, e) => s + e.blocked_today, 0);
