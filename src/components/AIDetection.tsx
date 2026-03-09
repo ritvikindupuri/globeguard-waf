@@ -473,6 +473,50 @@ export default function AIDetection() {
               {lastResult.indicators.map((ind, i) => <span key={i} className="px-2 py-0.5 bg-secondary/50 rounded-md text-[10px] font-mono text-foreground border border-border/50">{ind}</span>)}
             </div>
           )}
+
+          {/* Block Page URL */}
+          {lastResult.is_threat && selectedSite && (
+            <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+              <p className="text-[10px] font-mono text-muted-foreground">SEE THE BLOCK PAGE LIVE</p>
+              <p className="text-[10px] text-muted-foreground">
+                If you have a Cloudflare Worker connected to this site, paste this URL in your browser to see Deflectra's block page in action:
+              </p>
+              {(() => {
+                const attackPath = incomingPath || '/';
+                const workerBaseUrl = selectedSite.url.replace(/\/$/, '');
+                const blockPageUrl = `${workerBaseUrl}${attackPath.startsWith('/') ? '' : '/'}${attackPath}`;
+                return (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                      {blockPageUrl}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(blockPageUrl);
+                        toast.success('URL copied to clipboard');
+                      }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                      onClick={() => window.open(blockPageUrl, '_blank')}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                );
+              })()}
+              <p className="text-[10px] text-muted-foreground italic">
+                Note: The URL above uses your site's domain. If your Cloudflare Worker is on a different domain (e.g. <span className="font-mono">your-worker.workers.dev</span>), replace the base URL accordingly.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
