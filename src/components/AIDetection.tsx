@@ -51,6 +51,17 @@ export default function AIDetection() {
   const [customAttackInput, setCustomAttackInput] = useState('');
   const [runningCustomAttack, setRunningCustomAttack] = useState(false);
 
+  // Worker domain for block page URLs
+  const [workerDomain, setWorkerDomain] = useState(() => localStorage.getItem('deflectra_worker_domain') || '');
+  
+  // Expanded threat details
+  const [expandedThreatId, setExpandedThreatId] = useState<string | null>(null);
+
+  const saveWorkerDomain = (val: string) => {
+    setWorkerDomain(val);
+    localStorage.setItem('deflectra_worker_domain', val);
+  };
+
   useEffect(() => {
     if (!user) return;
     loadSites();
