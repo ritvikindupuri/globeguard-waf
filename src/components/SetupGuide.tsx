@@ -306,7 +306,7 @@ location /api/ {
           <div className="rounded-lg bg-muted/50 border border-border p-3">
             <Shield className="w-4 h-4 mx-auto mb-1 text-primary" />
             <p className="text-[10px] font-mono text-muted-foreground">AI ENGINE</p>
-            <p className="text-xs text-foreground mt-0.5">Gemini-powered</p>
+            <p className="text-xs text-foreground mt-0.5">Gemini 3.1 Pro</p>
           </div>
           <div className="rounded-lg bg-muted/50 border border-border p-3">
             <Globe className="w-4 h-4 mx-auto mb-1 text-primary" />
