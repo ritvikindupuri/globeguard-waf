@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.auto-setup-waf]
 verify_jwt = false
+
+[functions.auto-generate-fields]
+verify_jwt = false

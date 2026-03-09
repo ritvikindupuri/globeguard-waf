@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info } from 'lucide-react';
+import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,13 @@ interface AnalysisResult {
   indicators: string[];
 }
 
+interface AIGeneratedFields {
+  path?: boolean;
+  method?: boolean;
+  body?: boolean;
+  user_agent?: boolean;
+}
+
 export default function AIDetection() {
   const { user } = useAuth();
   const [sites, setSites] = useState<ProtectedSite[]>([]);
@@ -35,6 +42,10 @@ export default function AIDetection() {
   const [analyzing, setAnalyzing] = useState(false);
   const [lastResult, setLastResult] = useState<AnalysisResult | null>(null);
   const [recentThreats, setRecentThreats] = useState<ThreatLog[]>([]);
+
+  // AI generation state
+  const [generatingField, setGeneratingField] = useState<string | null>(null);
+  const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
 
   useEffect(() => {
     if (!user) return;
@@ -53,6 +64,70 @@ export default function AIDetection() {
   };
 
   const selectedSite = sites.find(s => s.id === selectedSiteId);
+
+  const generateField = async (field: string) => {
+    if (!selectedSite) {
+      toast.error('Select a protected site first');
+      return;
+    }
+
+    setGeneratingField(field);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'ai_detection', field },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.data) throw new Error('AI generation failed');
+
+      const result = data.data;
+      
+      if (field === 'path' && result.value) {
+        setIncomingPath(result.value);
+        setAiGeneratedFields(prev => ({ ...prev, path: true }));
+        toast.success(`Attack path: ${result.reasoning || result.value}`);
+      } else if (field === 'body' && result.value) {
+        setIncomingBody(result.value);
+        setAiGeneratedFields(prev => ({ ...prev, body: true }));
+        toast.success(`Payload: ${result.attack_type || 'malicious'}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed');
+    } finally {
+      setGeneratingField(null);
+    }
+  };
+
+  const generateAll = async () => {
+    if (!selectedSite) {
+      toast.error('Select a protected site first');
+      return;
+    }
+
+    setGeneratingField('all');
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'ai_detection' },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.data?.scenarios?.[0]) throw new Error('AI generation failed');
+
+      const scenario = data.data.scenarios[0];
+      setIncomingPath(scenario.path || '');
+      setIncomingMethod(scenario.method || 'GET');
+      setIncomingBody(scenario.body || '');
+      setIncomingUserAgent(scenario.user_agent || '');
+      setAiGeneratedFields({ path: true, method: true, body: true, user_agent: true });
+      
+      const stack = data.data.detected_stack;
+      toast.success(`Attack scenario for ${stack?.frontend || 'app'} + ${stack?.backend || 'backend'}`);
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed');
+    } finally {
+      setGeneratingField(null);
+    }
+  };
 
   const analyzeRequest = async () => {
     if (!selectedSite) { toast.error('Add a protected site first'); return; }
@@ -90,6 +165,13 @@ export default function AIDetection() {
     return s === 'critical' ? 'text-threat-critical' : s === 'high' ? 'text-threat-high' : s === 'medium' ? 'text-threat-medium' : 'text-threat-low';
   };
 
+  const AIBadge = () => (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/20 text-primary border border-primary/30">
+      <Sparkles className="w-2.5 h-2.5" />
+      AI
+    </span>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -101,10 +183,35 @@ export default function AIDetection() {
 
       {/* Analysis Input */}
       <div className="glass-card rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Brain className="w-4 h-4 text-primary" />
-          Simulate Incoming Request
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Brain className="w-4 h-4 text-primary" />
+            Simulate Incoming Request
+          </h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={generateAll}
+                  disabled={generatingField !== null || !selectedSite}
+                  className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {generatingField === 'all' ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 mr-1" />
+                  )}
+                  Generate Attack Scenario
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Deep-scan your app to generate realistic attack scenarios</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
         <div>
           <label className="text-xs font-medium text-muted-foreground block mb-1.5">Target Protected Site</label>
@@ -131,13 +238,49 @@ export default function AIDetection() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Request Path</label>
-            <Input placeholder="/api/users?id=1 OR 1=1" value={incomingPath} onChange={(e) => setIncomingPath(e.target.value)} className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10" />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Request Path
+                {aiGeneratedFields.path && <AIBadge />}
+              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => generateField('path')}
+                disabled={generatingField !== null || !selectedSite}
+                className="h-5 px-1.5 text-[10px] text-primary hover:bg-primary/10"
+              >
+                {generatingField === 'path' ? (
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-2.5 h-2.5" />
+                )}
+              </Button>
+            </div>
+            <Input 
+              placeholder="/api/users?id=1 OR 1=1" 
+              value={incomingPath} 
+              onChange={(e) => { setIncomingPath(e.target.value); setAiGeneratedFields(prev => ({ ...prev, path: false })); }} 
+              className={cn(
+                "bg-secondary/50 font-mono text-sm rounded-xl h-10",
+                aiGeneratedFields.path ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Method</label>
-            <select value={incomingMethod} onChange={(e) => setIncomingMethod(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Method
+              {aiGeneratedFields.method && <AIBadge />}
+            </label>
+            <select 
+              value={incomingMethod} 
+              onChange={(e) => { setIncomingMethod(e.target.value); setAiGeneratedFields(prev => ({ ...prev, method: false })); }} 
+              className={cn(
+                "w-full bg-secondary/50 border rounded-xl px-3 py-2.5 text-sm text-foreground",
+                aiGeneratedFields.method ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            >
               <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
             </select>
           </div>
@@ -145,15 +288,52 @@ export default function AIDetection() {
             <label className="text-xs font-medium text-muted-foreground block mb-1.5">Attacker IP (optional)</label>
             <Input placeholder="Auto-generated" value={incomingIp} onChange={(e) => setIncomingIp(e.target.value)} className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10" />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1.5">User Agent (optional)</label>
-            <Input placeholder="Mozilla/5.0..." value={incomingUserAgent} onChange={(e) => setIncomingUserAgent(e.target.value)} className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              User Agent (optional)
+              {aiGeneratedFields.user_agent && <AIBadge />}
+            </label>
+            <Input 
+              placeholder="Mozilla/5.0..." 
+              value={incomingUserAgent} 
+              onChange={(e) => { setIncomingUserAgent(e.target.value); setAiGeneratedFields(prev => ({ ...prev, user_agent: false })); }} 
+              className={cn(
+                "bg-secondary/50 font-mono text-sm rounded-xl h-10",
+                aiGeneratedFields.user_agent ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            />
           </div>
         </div>
 
-        <div>
-          <label className="text-xs font-medium text-muted-foreground block mb-1.5">Request Body (optional)</label>
-          <textarea placeholder='{"username":"admin","password":"OR 1=1--"}' value={incomingBody} onChange={(e) => setIncomingBody(e.target.value)} className="w-full bg-secondary/50 border border-border rounded-xl px-3 py-2 text-sm text-foreground font-mono min-h-[80px] resize-y" />
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Request Body (optional)
+              {aiGeneratedFields.body && <AIBadge />}
+            </label>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => generateField('body')}
+              disabled={generatingField !== null || !selectedSite}
+              className="h-5 px-1.5 text-[10px] text-primary hover:bg-primary/10"
+            >
+              {generatingField === 'body' ? (
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-2.5 h-2.5" />
+              )}
+            </Button>
+          </div>
+          <textarea 
+            placeholder='{"username":"admin","password":"OR 1=1--"}' 
+            value={incomingBody} 
+            onChange={(e) => { setIncomingBody(e.target.value); setAiGeneratedFields(prev => ({ ...prev, body: false })); }} 
+            className={cn(
+              "w-full bg-secondary/50 border rounded-xl px-3 py-2 text-sm text-foreground font-mono min-h-[80px] resize-y",
+              aiGeneratedFields.body ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+            )}
+          />
         </div>
 
         <Button onClick={analyzeRequest} disabled={analyzing || !selectedSite} className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl">

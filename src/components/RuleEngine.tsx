@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ToggleLeft, ToggleRight, Code, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ToggleLeft, ToggleRight, Code, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Tables } from '@/integrations/supabase/types';
 
 type WAFRule = Tables<'waf_rules'>;
+
+interface ProtectedSite {
+  id: string;
+  name: string;
+  url: string;
+}
+
+interface AIGeneratedFields {
+  name?: boolean;
+  pattern?: boolean;
+  description?: boolean;
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   sqli: 'SQL INJECTION',
@@ -40,6 +53,8 @@ const categoryStyles: Record<string, string> = {
 export default function RuleEngine() {
   const { user } = useAuth();
   const [rules, setRules] = useState<WAFRule[]>([]);
+  const [sites, setSites] = useState<ProtectedSite[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -52,9 +67,14 @@ export default function RuleEngine() {
     severity: 'medium',
   });
 
+  // AI generation state
+  const [generatingField, setGeneratingField] = useState<string | null>(null);
+  const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
+
   useEffect(() => {
     if (!user) return;
     loadRules();
+    loadSites();
   }, [user]);
 
   const loadRules = async () => {
@@ -65,6 +85,84 @@ export default function RuleEngine() {
 
     if (!error) setRules(data || []);
     setLoading(false);
+  };
+
+  const loadSites = async () => {
+    const { data } = await supabase.from('protected_sites').select('id, name, url').order('created_at', { ascending: false });
+    if (data) {
+      setSites(data);
+      if (data.length > 0 && !selectedSiteId) setSelectedSiteId(data[0].id);
+    }
+  };
+
+  const selectedSite = sites.find(s => s.id === selectedSiteId);
+
+  const generateField = async (field: string) => {
+    if (!selectedSite) {
+      toast.error('Select a protected site first');
+      return;
+    }
+
+    setGeneratingField(field);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'rule_engine', field },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.data) throw new Error('AI generation failed');
+
+      const result = data.data;
+      
+      if (field === 'pattern' && result.value) {
+        setNewRule(prev => ({ ...prev, pattern: result.value }));
+        setAiGeneratedFields(prev => ({ ...prev, pattern: true }));
+        toast.success(`Pattern targets: ${result.targets || 'detected vulnerabilities'}`);
+      } else if (field === 'name' && result.value) {
+        setNewRule(prev => ({ ...prev, name: result.value }));
+        setAiGeneratedFields(prev => ({ ...prev, name: true }));
+        toast.success(`Rule: ${result.value}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed');
+    } finally {
+      setGeneratingField(null);
+    }
+  };
+
+  const generateAll = async () => {
+    if (!selectedSite) {
+      toast.error('Select a protected site first');
+      return;
+    }
+
+    setGeneratingField('all');
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-generate-fields', {
+        body: { site_url: selectedSite.url, context: 'rule_engine' },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.data?.rules?.[0]) throw new Error('AI generation failed');
+
+      const rule = data.data.rules[0];
+      setNewRule({
+        name: rule.name,
+        description: rule.description,
+        pattern: rule.pattern,
+        category: rule.category,
+        rule_type: rule.rule_type,
+        severity: rule.severity,
+      });
+      setAiGeneratedFields({ name: true, pattern: true, description: true });
+      
+      const vulns = data.data.detected_vulnerabilities || [];
+      toast.success(`Detected ${vulns.length} potential vulnerabilities in ${selectedSite.name}`);
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed');
+    } finally {
+      setGeneratingField(null);
+    }
   };
 
   const toggleRule = async (id: string) => {
@@ -124,8 +222,16 @@ export default function RuleEngine() {
     setRules(prev => [...prev, data]);
     setNewRule({ name: '', description: '', pattern: '', category: 'custom', rule_type: 'block', severity: 'medium' });
     setAdding(false);
+    setAiGeneratedFields({});
     toast.success(`Rule "${data.name}" created`);
   };
+
+  const AIBadge = () => (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/20 text-primary border border-primary/30">
+      <Sparkles className="w-2.5 h-2.5" />
+      AI
+    </span>
+  );
 
   if (loading) {
     return <div className="text-xs font-mono text-muted-foreground">Loading rules...</div>;
@@ -144,11 +250,130 @@ export default function RuleEngine() {
       </div>
 
       {adding && (
-        <div className="bg-card border border-primary/20 rounded-lg p-4 space-y-3 glow-primary">
-          <p className="text-xs font-mono text-primary uppercase tracking-wider">Create New WAF Rule</p>
-          <Input placeholder="Rule name" value={newRule.name} onChange={(e) => setNewRule(p => ({ ...p, name: e.target.value }))} className="bg-secondary border-border text-sm" />
-          <Input placeholder="Description" value={newRule.description} onChange={(e) => setNewRule(p => ({ ...p, description: e.target.value }))} className="bg-secondary border-border text-sm" />
-          <Input placeholder="Regex pattern e.g. (SELECT|INSERT|DROP)" value={newRule.pattern} onChange={(e) => setNewRule(p => ({ ...p, pattern: e.target.value }))} className="bg-secondary border-border font-mono text-sm" />
+        <div className="bg-card border border-primary/20 rounded-lg p-4 space-y-4 glow-primary">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-mono text-primary uppercase tracking-wider">Create New WAF Rule</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={generateAll}
+                    disabled={generatingField !== null || !selectedSite}
+                    className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    {generatingField === 'all' ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 mr-1" />
+                    )}
+                    Generate All with AI
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Deep-scan your app's tech stack for tailored WAF rules</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Site Selector */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Target Site for AI Analysis</label>
+            {sites.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Add a protected site first</p>
+            ) : (
+              <select 
+                value={selectedSiteId} 
+                onChange={(e) => setSelectedSiteId(e.target.value)} 
+                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground"
+              >
+                {sites.map(s => <option key={s.id} value={s.id}>{s.name} — {s.url}</option>)}
+              </select>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Rule Name
+                {aiGeneratedFields.name && <AIBadge />}
+              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => generateField('name')}
+                disabled={generatingField !== null || !selectedSite}
+                className="h-5 px-1.5 text-[10px] text-primary hover:bg-primary/10"
+              >
+                {generatingField === 'name' ? (
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-2.5 h-2.5" />
+                )}
+              </Button>
+            </div>
+            <Input 
+              placeholder="Rule name" 
+              value={newRule.name} 
+              onChange={(e) => { setNewRule(p => ({ ...p, name: e.target.value })); setAiGeneratedFields(prev => ({ ...prev, name: false })); }} 
+              className={cn(
+                "bg-secondary text-sm",
+                aiGeneratedFields.name ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Description
+                {aiGeneratedFields.description && <AIBadge />}
+              </label>
+            </div>
+            <Input 
+              placeholder="Description" 
+              value={newRule.description} 
+              onChange={(e) => { setNewRule(p => ({ ...p, description: e.target.value })); setAiGeneratedFields(prev => ({ ...prev, description: false })); }} 
+              className={cn(
+                "bg-secondary text-sm",
+                aiGeneratedFields.description ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Regex Pattern
+                {aiGeneratedFields.pattern && <AIBadge />}
+              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => generateField('pattern')}
+                disabled={generatingField !== null || !selectedSite}
+                className="h-5 px-1.5 text-[10px] text-primary hover:bg-primary/10"
+              >
+                {generatingField === 'pattern' ? (
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-2.5 h-2.5" />
+                )}
+              </Button>
+            </div>
+            <Input 
+              placeholder="Regex pattern e.g. (SELECT|INSERT|DROP)" 
+              value={newRule.pattern} 
+              onChange={(e) => { setNewRule(p => ({ ...p, pattern: e.target.value })); setAiGeneratedFields(prev => ({ ...prev, pattern: false })); }} 
+              className={cn(
+                "bg-secondary font-mono text-sm",
+                aiGeneratedFields.pattern ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+              )}
+            />
+          </div>
+
           <div className="grid grid-cols-3 gap-2">
             <select value={newRule.category} onChange={(e) => setNewRule(p => ({ ...p, category: e.target.value }))} className="bg-secondary border border-border rounded px-2 py-1.5 text-xs text-foreground font-mono">
               <option value="sqli">SQL Injection</option>
@@ -172,9 +397,10 @@ export default function RuleEngine() {
               <option value="low">Low</option>
             </select>
           </div>
+
           <div className="flex gap-2">
             <Button size="sm" onClick={addRule} className="bg-primary text-primary-foreground">Create Rule</Button>
-            <Button size="sm" variant="ghost" onClick={() => setAdding(false)} className="text-muted-foreground">Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setAiGeneratedFields({}); }} className="text-muted-foreground">Cancel</Button>
           </div>
         </div>
       )}
