@@ -497,6 +497,8 @@ flowchart TD
 
 <p align="center"><em>Figure 1: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
 
+The following sections describe each stage of the AI analysis in detail.
+
 #### Step-by-Step AI Analysis:
 
 1. **Context Preparation** — The WAF prepares a structured payload containing:
