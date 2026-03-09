@@ -6,7 +6,309 @@ An AI-powered Web Application Firewall (WAF) that operates as a Layer 7 reverse 
 
 Originally built to protect [https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/), but **anyone can create an account** and connect their own applications for WAF protection.
 
-## System Architecture
+---
+
+## 🚀 Quick Start Guide
+
+### Step 1: Create Your Account
+
+1. Navigate to the **Auth** page (`/auth`)
+2. Sign up with your email and password
+3. Verify your email address
+4. Log in to access the dashboard
+
+### Step 2: Add Your First Protected Site
+
+1. Go to **Sites** in the sidebar
+2. Click **Add Site**
+3. Enter your application's URL (e.g., `https://myapp.com`)
+4. Give it a name (optional — defaults to hostname)
+5. Click **Protect Site**
+
+**What happens next:**
+- AI automatically analyzes your application
+- Detects your tech stack (React, Node, PHP, etc.)
+- Generates tailored WAF rules for common attacks
+- Sets up rate limiting for sensitive endpoints
+- Configures API monitoring for detected endpoints
+
+### Step 3: Route Traffic Through the WAF
+
+After adding your site, you'll see a **WAF Proxy Endpoint** like:
+
+```
+https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy?site_id=YOUR_SITE_ID&path=/your-endpoint
+```
+
+**Integration Options:**
+
+#### Option A: Direct API Calls (Recommended for Edge Functions)
+
+Replace your direct API calls with the WAF proxy:
+
+```typescript
+// Before: Direct call
+const response = await fetch('https://your-backend.com/api/contact', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+// After: Through Deflectra WAF
+const WAF_PROXY = 'https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy';
+const SITE_ID = 'your-site-id-from-deflectra';
+
+const response = await fetch(`${WAF_PROXY}?site_id=${SITE_ID}&path=/api/contact`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+```
+
+#### Option B: Cloudflare Worker (Full Traffic Interception)
+
+Deploy a Cloudflare Worker to intercept ALL traffic:
+
+```javascript
+// cloudflare-worker.js
+const WAF_PROXY = 'https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy';
+const SITE_ID = 'your-site-id';
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const wafUrl = `${WAF_PROXY}?site_id=${SITE_ID}&path=${url.pathname}`;
+    
+    return fetch(wafUrl, {
+      method: request.method,
+      headers: request.headers,
+      body: request.body
+    });
+  }
+};
+```
+
+---
+
+## ⚙️ Configuration Guide
+
+### Configuring WAF Rules
+
+Navigate to **Rules** in the sidebar to manage your WAF rules.
+
+#### Auto-Generate Rules (Recommended)
+
+1. Click the **Generate with AI** button
+2. AI will crawl your protected site
+3. Rules are automatically created based on:
+   - Your tech stack (React, Vue, Node, PHP, etc.)
+   - Detected API endpoints
+   - Common attack vectors for your stack
+
+#### Manual Rule Creation
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Name** | Rule identifier | "Block SQL Injection" |
+| **Pattern** | Regex to match | `(?i)(union\s+select|drop\s+table)` |
+| **Category** | Rule type | sqli, xss, rce, lfi, custom |
+| **Severity** | Impact level | low, medium, high, critical |
+| **Priority** | Execution order | 1-1000 (lower = runs first) |
+| **Action** | What to do | block, log, challenge |
+
+#### Pre-Built Rule Categories
+
+- **SQLi** — SQL injection patterns (`' OR 1=1`, `UNION SELECT`, etc.)
+- **XSS** — Cross-site scripting (`<script>`, `javascript:`, `onerror=`)
+- **RCE** — Remote code execution (`; ls`, `| cat /etc/passwd`)
+- **LFI** — Local file inclusion (`../../../etc/passwd`)
+- **Path Traversal** — Directory traversal attempts
+
+---
+
+### Configuring Rate Limiting
+
+Navigate to **Rate Limiting** in the sidebar.
+
+#### Auto-Generate Rate Limits
+
+1. Click **Generate with AI**
+2. AI analyzes your site's endpoints
+3. Creates sensible limits based on endpoint type:
+   - Login endpoints: 5 requests/minute
+   - API endpoints: 100 requests/minute
+   - Static assets: 1000 requests/minute
+
+#### Manual Configuration
+
+| Field | Description | Recommended |
+|-------|-------------|-------------|
+| **Path** | URL path to protect | `/api/login` |
+| **Max Requests** | Requests allowed | 5-100 depending on endpoint |
+| **Window (seconds)** | Time window | 60 (1 minute) |
+| **Action** | What happens when exceeded | block, throttle, challenge |
+
+#### Best Practices
+
+```
+Login/Auth endpoints:     5 requests / 60 seconds
+Contact forms:           10 requests / 60 seconds
+API endpoints:          100 requests / 60 seconds
+Search endpoints:        30 requests / 60 seconds
+```
+
+---
+
+### Configuring API Protection
+
+Navigate to **API Protection** in the sidebar.
+
+#### Auto-Generate API Endpoints
+
+1. Click **Generate with AI**
+2. AI discovers your API endpoints
+3. Configures protection for each:
+   - JWT inspection for auth-required endpoints
+   - Schema validation for POST/PUT requests
+   - Rate limiting integration
+
+#### Manual Configuration
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Path** | API endpoint | `/api/users` |
+| **Method** | HTTP method | GET, POST, PUT, DELETE |
+| **JWT Inspection** | Validate auth tokens | ✅ for protected routes |
+| **Schema Validation** | Validate request body | ✅ for POST/PUT |
+| **Rate Limited** | Apply rate limits | ✅ for sensitive endpoints |
+
+---
+
+### Configuring AI Detection
+
+Navigate to **AI Detection** in the sidebar.
+
+#### Settings
+
+| Setting | Description | Recommended |
+|---------|-------------|-------------|
+| **AI Detection Enabled** | Use Gemini for analysis | ✅ On |
+| **Paranoia Level** | How aggressive (1-4) | 2 for most apps |
+| **Default Action** | What to do on threats | block |
+| **Alert Email** | Get notified | your-email@example.com |
+| **Webhook URL** | POST alerts to URL | Your Slack/Discord webhook |
+
+#### Paranoia Levels Explained
+
+- **Level 1** — Low sensitivity, fewer false positives, may miss sophisticated attacks
+- **Level 2** — Balanced (recommended), catches most attacks with minimal false positives
+- **Level 3** — High sensitivity, may flag legitimate requests
+- **Level 4** — Maximum paranoia, aggressive blocking, high false positive rate
+
+---
+
+## 📊 Dashboard Features
+
+### Threat Globe (`/globe`)
+
+A 3D visualization showing:
+- **Red arcs** — Blocked attacks from source to your server
+- **Markers** — Attack origins with country info
+- **Real-time updates** — New attacks appear instantly
+
+### Threat Logs (`/threats`)
+
+Detailed table showing:
+- Timestamp
+- Source IP & Country
+- Attack type (SQLi, XSS, etc.)
+- Matched rule
+- Severity level
+- Action taken
+
+### Analytics (Dashboard)
+
+- **Requests blocked** — Total threats stopped
+- **Block rate** — Percentage of malicious traffic
+- **Top attack types** — Most common threats
+- **Traffic over time** — Request volume charts
+
+---
+
+## 🔐 Security Best Practices
+
+### 1. Enable All Protection Layers
+
+In **Settings**, ensure all toggles are ON:
+- ✅ AI Detection
+- ✅ Rate Limiting
+- ✅ API Protection
+
+### 2. Set Up Email Alerts
+
+In **AI Detection** settings:
+1. Enter your email address
+2. Choose severity threshold (recommend: medium+)
+3. You'll get notified when attacks are blocked
+
+### 3. Review and Tune Rules Weekly
+
+1. Check **Threats** page for false positives
+2. Adjust rule patterns if legitimate requests are blocked
+3. Lower paranoia level if too many false positives
+
+### 4. Use Strong Rate Limits on Auth Endpoints
+
+```
+/login          →  5 req/min
+/register       →  3 req/min
+/forgot-password → 3 req/min
+/api/auth/*     → 10 req/min
+```
+
+### 5. Enable JWT Inspection for Protected Routes
+
+Any endpoint requiring authentication should have JWT inspection ON.
+
+---
+
+## 🛠️ Troubleshooting
+
+### "Site not found" Error (404)
+
+**Cause:** The `site_id` in your request doesn't exist in Deflectra.
+
+**Fix:** 
+1. Go to **Sites** in Deflectra
+2. Copy the correct `site_id` from your protected site
+3. Update your integration code
+
+### Requests Not Being Logged
+
+**Cause:** WAF settings may be disabled.
+
+**Fix:**
+1. Go to **Settings** 
+2. Ensure AI Detection, Rate Limiting, and API Protection are ON
+3. Check that your site is registered in **Sites**
+
+### False Positives (Legitimate Requests Blocked)
+
+**Fix:**
+1. Go to **AI Detection** settings
+2. Lower the **Paranoia Level** (try 1 or 2)
+3. Check **Rules** and disable overly aggressive patterns
+4. Add exceptions for known-good patterns
+
+### AI Analysis Not Running
+
+**Cause:** LOVABLE_API_KEY not configured or AI detection disabled.
+
+**Fix:**
+1. Ensure AI Detection is ON in settings
+2. The LOVABLE_API_KEY is auto-configured — no action needed
+
+---
+
+## 📐 System Architecture
 
 ```mermaid
 flowchart TB
@@ -43,36 +345,18 @@ flowchart TB
     GLOBE --> MAPBOX
 ```
 
-<p align="center"><em>Figure 1: Deflectra System Architecture</em></p>
+### 6-Stage Inspection Pipeline
 
-### How It Works
+1. **JWT Inspection** — Validates auth tokens on protected endpoints
+2. **Schema Validation** — Checks JSON body against expected schema
+3. **Rate Limiting** — Tracks per-IP request counts
+4. **Regex Rules** — Matches against attack patterns (SQLi, XSS, RCE, LFI)
+5. **AI Analysis** — Gemini analyzes suspicious requests that pass regex
+6. **Decision** — Block with branded page or forward to origin
 
-1. **Traffic Interception** — All incoming requests hit the Cloudflare Worker at the edge, which forwards them to the WAF proxy for inspection before they ever reach your origin server.
+---
 
-2. **6-Stage Inspection Pipeline** — Each request passes through a layered security check:
-   - *API Shield* checks JWT tokens and validates request bodies against schemas
-   - *Rate Limiter* tracks per-IP request counts and blocks abusers
-   - *Regex Engine* matches against SQLi, XSS, LFI, and RCE attack patterns
-   - *AI Analysis* sends suspicious requests to Gemini for classification with confidence scoring
-   - *Logger* records all threats with IP geolocation for the dashboard
-   - *Decision* either forwards clean traffic to origin or serves a branded block page
-
-3. **Real-Time Dashboard Updates** — When an attack is blocked, the database triggers a WebSocket event that instantly pushes the threat data to all connected dashboard sessions.
-
-4. **Geographic Visualization** — Blocked attacks are plotted on a 3D globe with animated arcs showing attack origin → target, helping you visualize threat patterns at a glance.
-
-### Architecture Breakdown
-
-| Layer | Component | What It Does |
-|-------|-----------|--------------|
-| Edge | Cloudflare Worker | Sits in front of your app, intercepts all traffic, and routes it through the WAF before forwarding to origin |
-| WAF Engine | waf-proxy Function | Runs the 6-stage inspection pipeline, makes block/allow decisions, logs threats |
-| AI Layer | Gemini 3 Flash | Analyzes ambiguous requests that pass regex checks, returns threat classification + confidence score + estimated country of origin |
-| Database | PostgreSQL + RLS | Stores rules, threats, sites, and settings with row-level security isolating each user's data |
-| Real-Time | Supabase Realtime | Pushes blocked threat events to the dashboard via WebSocket subscriptions |
-| Visualization | Mapbox GL JS | Renders a 3D globe with attack arcs, rotating view, and threat markers |
-
-## Tech Stack
+## 🔧 Tech Stack
 
 ### Frontend
 React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Mapbox GL JS, Framer Motion
@@ -80,30 +364,9 @@ React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Mapbox GL JS, Fra
 ### Backend
 Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cloudflare Workers, Resend API
 
-## Features
+---
 
-### Security Engine
-- **Reverse Proxy WAF** — All traffic routes through the WAF before reaching your origin, giving you full request inspection without changing your backend code
-- **Regex Rule Engine** — Pre-built patterns for SQLi, XSS, LFI, RCE, and path traversal attacks. Rules have priority ordering so critical checks run first, and you can add custom patterns
-- **AI Threat Classification** — Requests that look suspicious but don't match known patterns get sent to Gemini 3 Flash, which returns a threat type, confidence score (0-100), and estimated geographic origin
-- **Branded Block Page** — Attackers see a professional "Access Denied" page with your branding instead of raw error codes
-
-### API Protection
-- **API Shield** — Define protected endpoints with per-route controls for JWT inspection and JSON schema validation
-- **Rate Limiting** — Configurable per-IP limits with sliding windows (e.g., 100 requests per 60 seconds), with automatic blocking when thresholds are exceeded
-
-### Dashboard & Monitoring
-- **3D Threat Globe** — Live visualization of blocked attacks on a rotating Mapbox globe, with animated arcs showing attack source to your server
-- **Real-Time Threat Feed** — WebSocket-powered table that updates instantly when new threats are blocked
-- **Traffic Analytics** — Charts showing request volume, block rates, and threat type distribution over time
-
-### AI-Powered Auto-Configuration
-- **AI Auto-Setup** — Paste your site URL and the AI analyzes your application, then generates recommended WAF rules tailored to your tech stack and exposed endpoints
-- **AI Auto-Fill** — One-click "Generate with AI" button across all configuration forms (Rule Engine, Rate Limiting, API Shield, AI Detection). The AI deep-crawls your protected site, discovers endpoints, identifies your tech stack, and auto-generates security configurations — no manual input required
-- **Multi-Site Support** — Protect multiple applications from a single dashboard, each with its own rules and analytics
-- **Email Notifications** — Get alerts via Resend when high-severity attacks are blocked
-
-## Setup Instructions
+## 📦 Self-Hosting Setup
 
 1. Clone and install: `git clone <repo> && npm install`
 2. Set `.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
@@ -111,14 +374,9 @@ Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cl
 4. Deploy edge functions: `npx supabase functions deploy waf-proxy analyze-threat auto-setup-waf auto-generate-fields send-notification`
 5. Set secrets: `npx supabase secrets set LOVABLE_API_KEY=<key>`
 6. Run: `npm run dev`
-7. Create account at `/auth`, add a site in Protected Sites, copy proxy URL
-8. Route your app's API calls through the proxy URL
-9. Optional: Deploy Cloudflare Worker for full traffic interception
 
-## Production Use
+---
 
-Protecting [https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/) with 5 edge functions routed through the WAF: `send-contact-email`, `portfolio-chatbot`, `log-auth-attempt`, `send-visitor-alert`, `send-recruiter-alert`.
-
-## License
+## 📄 License
 
 MIT
