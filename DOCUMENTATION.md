@@ -560,22 +560,83 @@ The block page is generated server-side in the `waf-proxy` edge function and ser
 
 ## Cloudflare Workers Integration
 
-For production deployment, a Cloudflare Worker acts as the entry point, forwarding all traffic through Deflectra's WAF proxy before it reaches the origin server.
+Cloudflare Workers provide the critical "edge interception" layer that makes Deflectra a true reverse proxy WAF. Without a Cloudflare Worker, you would need to manually update every API call in your application to route through the WAF proxy URL. With a Cloudflare Worker, **all traffic to your domain is automatically intercepted and inspected** before reaching your origin server.
 
-### How It Works
+### Why Cloudflare Workers?
+
+| Without Worker | With Worker |
+|----------------|-------------|
+| Must manually update every fetch/API call in your codebase | Zero code changes — traffic is intercepted at the edge |
+| Only protects specific endpoints you explicitly route | Protects **all** traffic to your domain automatically |
+| Attackers can bypass WAF by calling origin directly | Origin is hidden — all requests must pass through WAF |
+| Limited to API calls you control | Covers static assets, third-party integrations, everything |
+
+### Architecture Role
+
+Cloudflare Workers run at the edge (200+ data centers worldwide), sitting between the user's browser and your origin server. When a request arrives:
+
+1. **Edge Interception** — Cloudflare's global network receives the HTTP request before it ever touches your origin
+2. **Header Enrichment** — The worker extracts the real client IP from `CF-Connecting-IP` and passes it as `X-Forwarded-For` so Deflectra can log accurate source IPs
+3. **WAF Forwarding** — The worker sends the full request (method, path, headers, body) to Deflectra's `waf-proxy` edge function
+4. **Response Routing** — Based on Deflectra's verdict:
+   - **Clean traffic** → The worker forwards the origin server's response back to the user
+   - **Blocked traffic** → The worker returns Deflectra's branded block page (HTML) directly to the attacker
 
 ```mermaid
-flowchart LR
-    USER[User Browser] -->|HTTP Request| CF_WORKER[Cloudflare Worker]
-    CF_WORKER -->|Forward with Headers| WAF[Deflectra waf-proxy]
-    WAF -->|Clean| ORIGIN[Origin Server]
-    WAF -->|Blocked| CF_WORKER
-    CF_WORKER -->|Block Page HTML| USER
-    ORIGIN -->|Response| CF_WORKER
-    CF_WORKER -->|Response| USER
+flowchart TB
+    subgraph Edge["Cloudflare Edge (200+ PoPs)"]
+        CF_WORKER[Cloudflare Worker]
+    end
+    
+    subgraph Deflectra["Deflectra WAF"]
+        WAF_PROXY[waf-proxy Edge Function]
+        DB[(PostgreSQL)]
+        GEMINI[Gemini AI]
+    end
+    
+    subgraph Origin["Your Infrastructure"]
+        ORIGIN[Origin Server / APIs]
+    end
+    
+    USER[User / Attacker] -->|1. HTTP Request| CF_WORKER
+    CF_WORKER -->|2. Forward + X-Forwarded-For| WAF_PROXY
+    WAF_PROXY -->|3a. Check rules| DB
+    WAF_PROXY -->|3b. AI analysis| GEMINI
+    WAF_PROXY -->|4. BLOCKED| CF_WORKER
+    CF_WORKER -->|5. Block Page HTML| USER
+    WAF_PROXY -->|4. CLEAN| ORIGIN
+    ORIGIN -->|6. Response| WAF_PROXY
+    WAF_PROXY -->|7. Forward| CF_WORKER
+    CF_WORKER -->|8. Response| USER
 ```
 
-<p align="center"><em>Figure 1: Cloudflare Worker Traffic Flow — How the worker routes requests through Deflectra's WAF proxy and forwards responses back to the user.</em></p>
+<p align="center"><em>Figure 1: Cloudflare Worker Traffic Flow — Complete request lifecycle from user through edge, WAF inspection, and back.</em></p>
+
+### Traffic Flow Walkthrough
+
+**Step 1 — User Request:** A user (or attacker) sends an HTTP request to your Cloudflare-proxied domain (e.g., `api.yoursite.com`).
+
+**Step 2 — Edge Capture:** The Cloudflare Worker intercepts the request at the nearest edge location. It extracts:
+- The request method (GET, POST, etc.)
+- The full path including query string
+- The request body (for POST/PUT/PATCH)
+- The real client IP from `CF-Connecting-IP`
+- The User-Agent header
+
+**Step 3 — WAF Forwarding:** The worker constructs a request to Deflectra's `waf-proxy` edge function, including:
+- `site_id` query parameter identifying your protected site
+- `path` query parameter with the original request path
+- `X-Forwarded-For` header with the real client IP
+- `Authorization` and `apikey` headers for Supabase authentication
+- The original request body
+
+**Step 4 — WAF Inspection:** Deflectra runs the request through its 6-stage inspection pipeline (API Shield → Rate Limiting → Regex Rules → AI Analysis → Logging → Decision).
+
+**Step 5a — If Blocked:** The WAF returns a 403 status with the branded block page HTML. The worker forwards this directly to the attacker — they see the "Access Denied" page.
+
+**Step 5b — If Clean:** The WAF forwards the request to your origin server, gets the response, and returns it to the worker.
+
+**Step 6 — Response Delivery:** The worker passes the final response (either the block page or the origin's response) back to the user with appropriate headers.
 
 ### Cloudflare Worker Code
 
@@ -587,12 +648,15 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname + url.search;
 
+    // Construct WAF proxy URL with site ID and path
     const wafProxyUrl = `https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy?site_id=052a39c2-c570-41f1-a340-50ca2f38ebef&path=${encodeURIComponent(path)}`;
 
+    // Extract body for non-GET requests
     const body = ['GET', 'HEAD'].includes(request.method)
       ? undefined
       : await request.text();
 
+    // Forward to Deflectra WAF proxy
     const wafResponse = await fetch(wafProxyUrl, {
       method: request.method,
       headers: {
@@ -605,8 +669,10 @@ export default {
       body,
     });
 
+    // Preserve binary data integrity (important for images, etc.)
     const responseBody = await wafResponse.arrayBuffer();
 
+    // Return WAF response (either block page or origin response)
     return new Response(responseBody, {
       status: wafResponse.status,
       headers: {
@@ -620,11 +686,37 @@ export default {
 };
 ```
 
-**Key Details:**
-- The worker passes the `Authorization` and `apikey` headers required by Supabase Edge Functions
-- `Content-Type` is forwarded from the WAF response so block pages render as HTML in the browser
-- `X-Forwarded-For` is set to the real client IP using `CF-Connecting-IP`
-- `arrayBuffer()` is used instead of `text()` to preserve binary data integrity
+### Configuration Details
+
+| Header / Parameter | Purpose |
+|--------------------|---------|
+| `site_id` | Identifies your protected site in Deflectra's database |
+| `path` | The original request path, URL-encoded |
+| `X-Forwarded-For` | Real client IP from `CF-Connecting-IP` — critical for accurate threat logging and rate limiting |
+| `Authorization` / `apikey` | Supabase anon key for edge function authentication |
+| `X-Deflectra-Action` | Response header indicating `blocked` or `allowed` |
+| `X-Deflectra-Protected` | Response header confirming request was inspected |
+
+### Deployment Steps
+
+1. **Create Worker** — Go to Cloudflare dashboard → Workers & Pages → Create Application
+2. **Paste Code** — Copy the worker code above, replacing `<SUPABASE_ANON_KEY>` with your actual key
+3. **Configure Route** — Add a route pattern like `api.yoursite.com/*` to your worker
+4. **Verify** — Send a test request and check Deflectra's dashboard for the logged traffic
+
+### Alternative: Direct Proxy (No Cloudflare)
+
+If you don't want to use Cloudflare Workers, you can still use Deflectra by manually routing specific API calls through the proxy URL:
+
+```javascript
+// Instead of calling your API directly:
+// fetch('https://api.yoursite.com/endpoint')
+
+// Route through Deflectra:
+fetch('https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy?site_id=YOUR_SITE_ID&path=/endpoint')
+```
+
+This approach requires updating your frontend code but works without Cloudflare.
 
 ---
 
