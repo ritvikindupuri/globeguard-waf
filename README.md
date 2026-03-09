@@ -95,8 +95,9 @@ Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cl
 - **Real-Time Threat Feed** — WebSocket-powered table that updates instantly when new threats are blocked
 - **Traffic Analytics** — Charts showing request volume, block rates, and threat type distribution over time
 
-### Setup & Configuration
+### AI-Powered Auto-Configuration
 - **AI Auto-Setup** — Paste your site URL and the AI analyzes your application, then generates recommended WAF rules tailored to your tech stack and exposed endpoints
+- **AI Auto-Fill** — One-click "Generate with AI" button across all configuration forms (Rule Engine, Rate Limiting, API Shield, AI Detection). The AI deep-crawls your protected site, discovers endpoints, identifies your tech stack, and auto-generates security configurations — no manual input required
 - **Multi-Site Support** — Protect multiple applications from a single dashboard, each with its own rules and analytics
 - **Email Notifications** — Get alerts via Resend when high-severity attacks are blocked
 
@@ -105,7 +106,7 @@ Supabase (PostgreSQL, Edge Functions, Auth, Realtime), Google Gemini 3 Flash, Cl
 1. Clone and install: `git clone <repo> && npm install`
 2. Set `.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
 3. Push DB migrations: `npx supabase db push`
-4. Deploy edge functions: `npx supabase functions deploy waf-proxy analyze-threat auto-setup-waf send-notification`
+4. Deploy edge functions: `npx supabase functions deploy waf-proxy analyze-threat auto-setup-waf auto-generate-fields send-notification`
 5. Set secrets: `npx supabase secrets set LOVABLE_API_KEY=<key>`
 6. Run: `npm run dev`
 7. Create account at `/auth`, add a site in Protected Sites, copy proxy URL
