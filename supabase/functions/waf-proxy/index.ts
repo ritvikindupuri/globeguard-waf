@@ -145,8 +145,22 @@ serve(async (req) => {
     let matchedRule: any = null;
 
     // ──────────────────────────────────────────────
+    // 0. LOAD WAF SETTINGS
+    // ──────────────────────────────────────────────
+    const { data: wafSettings } = await supabase
+      .from("waf_settings")
+      .select("*")
+      .eq("user_id", site.user_id)
+      .maybeSingle();
+
+    const aiDetectionEnabled = wafSettings?.ai_detection_enabled ?? true;
+    const apiProtectionEnabled = wafSettings?.api_protection_enabled ?? true;
+    const rateLimitingEnabled = wafSettings?.rate_limiting_enabled ?? true;
+
+    // ──────────────────────────────────────────────
     // 1. API SHIELD: Check endpoint-specific protections
     // ──────────────────────────────────────────────
+    if (apiProtectionEnabled) {
     const { data: apiEndpoints } = await supabase
       .from("api_endpoints")
       .select("*")
@@ -228,10 +242,12 @@ serve(async (req) => {
       }
     }
 
+    } // end apiProtectionEnabled
+
     // ──────────────────────────────────────────────
     // 2. RATE LIMITING: Per-IP request counting
     // ──────────────────────────────────────────────
-    if (!blocked) {
+    if (!blocked && rateLimitingEnabled) {
       const { data: rateLimitRules } = await supabase
         .from("rate_limit_rules")
         .select("*")
@@ -309,7 +325,7 @@ serve(async (req) => {
     let aiAnalysis: any = null;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!blocked && !matchedRule && LOVABLE_API_KEY) {
+    if (!blocked && !matchedRule && LOVABLE_API_KEY && aiDetectionEnabled) {
       try {
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
