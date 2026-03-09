@@ -582,6 +582,14 @@ Shows the 10 most recent entries from `threat_logs` with:
   - 30-59%: Suspicious, possible false positive
   - 0-29%: Probably safe
 
+### Recent AI Detections UI
+
+<p align="center">
+  <img src="https://i.imgur.com/UwFrHm4.png" alt="Recent AI Detections Panel" width="900" />
+</p>
+
+<p align="center"><em>Figure 3: Recent AI Detections — Expandable threat log entries showing AI analysis details, source IP, severity, confidence, and direct links to view the served block page.</em></p>
+
 ### Block Page Preview
 
 An embedded iframe preview showing exactly what attackers see when Deflectra blocks their request. Toggle the preview with a Show/Hide button.
