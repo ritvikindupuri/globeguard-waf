@@ -590,18 +590,6 @@ Each test sends a real request through the `waf-proxy` edge function and checks 
 3. **No-JWT Request** — Should be blocked if JWT inspection is enabled
 4. **Malformed JSON** — Should be blocked if schema validation is enabled
 
-### Pre-Populated Portfolio Endpoints
-
-The following endpoints are pre-configured for the developer's portfolio:
-
-| Method | Path | Schema | JWT | Rate Limited |
-|--------|------|--------|-----|-------------|
-| POST | /functions/v1/send-contact-email | ✓ | ✗ | ✓ |
-| POST | /functions/v1/portfolio-chatbot | ✓ | ✗ | ✓ |
-| POST | /functions/v1/log-auth-attempt | ✓ | ✓ | ✓ |
-| POST | /functions/v1/send-visitor-alert | ✓ | ✓ | ✗ |
-| POST | /functions/v1/send-recruiter-alert | ✓ | ✓ | ✗ |
-
 ---
 
 ## Rate Limiting
