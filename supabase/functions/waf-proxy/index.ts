@@ -168,7 +168,7 @@ serve(async (req) => {
       .eq("user_id", site.user_id);
 
     // Find matching endpoint by path (fuzzy match — endpoint path is a prefix/suffix of targetPath)
-    const matchedEndpoint = (apiEndpoints || []).find((ep: any) => {
+    matchedEndpoint = (apiEndpoints || []).find((ep: any) => {
       return targetPath.includes(ep.path) || ep.path.includes(targetPath);
     });
 
