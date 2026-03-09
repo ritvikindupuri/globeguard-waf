@@ -455,6 +455,12 @@ The Rule Engine (`/rules`) provides a CRUD interface for managing regex-based WA
 - Delete rules
 - Rules are applied in the waf-proxy in priority order
 
+<p align="center">
+  <img src="https://i.imgur.com/2vpJdL0.png" alt="Rule Engine Interface" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Rule Engine — AI-generated XSS protection rules with severity levels, action types, and toggle controls for each rule.</em></p>
+
 ---
 
 ## AI Threat Detection
