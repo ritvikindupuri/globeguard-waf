@@ -650,7 +650,7 @@ flowchart TD
     INJECT --> DYNAMIC
 ```
 
-<p align="center"><em>Figure: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
+<p align="center"><em>Figure 1: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
 
 #### Step-by-Step Blocking Mechanism:
 
