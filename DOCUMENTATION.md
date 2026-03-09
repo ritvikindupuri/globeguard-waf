@@ -694,6 +694,12 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: Real-Time Notification Flow — How blocked attacks trigger instant toast notifications in the dashboard via WebSocket.</em></p>
 
+<p align="center">
+  <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Notification Center — Real-time threat alerts with severity badges, AI detection explanations, source IP tracking, and filterable notification categories.</em></p>
+
 **Implementation:**
 - The `useRealtimeThreats` hook subscribes to `INSERT` events on `threat_logs` filtered by `user_id`
 - When a blocked threat is inserted, a Sonner toast appears with the attacker's IP and threat type
