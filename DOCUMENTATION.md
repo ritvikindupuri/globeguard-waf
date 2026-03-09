@@ -1220,6 +1220,7 @@ erDiagram
 | `rate_limit_hits` | Per-IP request counting for rate limits | Service role only (used by waf-proxy) |
 | `api_endpoints` | Registered API endpoints with protections | Users can CRUD their own endpoints |
 | `waf_settings` | Global WAF configuration per user | Users can INSERT, UPDATE, SELECT their own settings |
+| `notifications` | Threat alerts and system events with read/dismiss state | Users can CRUD their own notifications |
 
 ---
 
