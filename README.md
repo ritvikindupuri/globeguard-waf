@@ -4,7 +4,7 @@ An AI-powered Web Application Firewall (WAF) that operates as a Layer 7 reverse 
 
 > 📖 **[Full Technical Documentation →](DOCUMENTATION.md)**
 
-Originally built to protect [https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/), but **anyone can create an account** and connect their own applications for WAF protection.
+**Anyone can create an account** and connect their own web applications for AI-powered WAF protection.
 
 ---
 
