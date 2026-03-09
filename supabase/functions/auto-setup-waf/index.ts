@@ -6,6 +6,164 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/**
+ * Fetches the target site and extracts technical intelligence for WAF auto-setup.
+ * 
+ * Performs a REAL HTTP crawl of the target site to discover:
+ * - Technology stack (React, Vue, Next.js, Supabase, WordPress, etc.)
+ * - API endpoints (from script sources, meta tags, inline scripts)
+ * - Authentication patterns
+ * - Third-party integrations
+ * - Form actions and link structure
+ * 
+ * This data is passed to Gemini 3 Flash so the AI generates rules
+ * based on ACTUAL site content, not generic guesses from the URL alone.
+ * 
+ * @param siteUrl - The URL to analyze
+ * @returns Object containing extracted site intelligence
+ */
+async function fetchSiteIntelligence(siteUrl: string): Promise<{
+  html: string;
+  technologies: string[];
+  apiEndpoints: string[];
+  metaTags: Record<string, string>;
+  scriptSources: string[];
+  linkHrefs: string[];
+  formActions: string[];
+  rawInlineScripts: string[];
+}> {
+  console.log(`[Site Crawler] Fetching: ${siteUrl}`);
+
+  const result = {
+    html: "",
+    technologies: [] as string[],
+    apiEndpoints: [] as string[],
+    metaTags: {} as Record<string, string>,
+    scriptSources: [] as string[],
+    linkHrefs: [] as string[],
+    formActions: [] as string[],
+    rawInlineScripts: [] as string[],
+  };
+
+  try {
+    const response = await fetch(siteUrl, {
+      headers: {
+        "User-Agent": "Deflectra-WAF-Crawler/1.0 (Security Analysis)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) {
+      console.warn(`[Site Crawler] HTTP ${response.status} for ${siteUrl}`);
+      return result;
+    }
+
+    const html = await response.text();
+    result.html = html.substring(0, 50000); // Limit to 50KB for LLM context
+
+    // Extract meta tags
+    const metaRegex = /<meta\s+(?:[^>]*?\s)?(?:name|property)=["']([^"']+)["'][^>]*?\scontent=["']([^"']+)["'][^>]*>/gi;
+    let metaMatch;
+    while ((metaMatch = metaRegex.exec(html)) !== null) {
+      result.metaTags[metaMatch[1]] = metaMatch[2];
+    }
+
+    // Extract script sources
+    const scriptSrcRegex = /<script[^>]+src=["']([^"']+)["']/gi;
+    let scriptMatch;
+    while ((scriptMatch = scriptSrcRegex.exec(html)) !== null) {
+      result.scriptSources.push(scriptMatch[1]);
+    }
+
+    // Extract inline scripts (limited)
+    const inlineScriptRegex = /<script[^>]*>([^<]{10,2000})<\/script>/gi;
+    let inlineMatch;
+    while ((inlineMatch = inlineScriptRegex.exec(html)) !== null && result.rawInlineScripts.length < 5) {
+      result.rawInlineScripts.push(inlineMatch[1].substring(0, 500));
+    }
+
+    // Extract link hrefs
+    const linkRegex = /<a[^>]+href=["']([^"'#][^"']*)["']/gi;
+    let linkMatch;
+    while ((linkMatch = linkRegex.exec(html)) !== null && result.linkHrefs.length < 50) {
+      result.linkHrefs.push(linkMatch[1]);
+    }
+
+    // Extract form actions
+    const formRegex = /<form[^>]+action=["']([^"']+)["']/gi;
+    let formMatch;
+    while ((formMatch = formRegex.exec(html)) !== null) {
+      result.formActions.push(formMatch[1]);
+    }
+
+    // Technology detection — 25+ frameworks, hosting, databases, etc.
+    const techPatterns: [RegExp, string][] = [
+      [/react/i, "React"],
+      [/vue\.?js|vue@/i, "Vue.js"],
+      [/angular/i, "Angular"],
+      [/next\.?js|_next\//i, "Next.js"],
+      [/nuxt/i, "Nuxt.js"],
+      [/svelte/i, "Svelte"],
+      [/supabase/i, "Supabase"],
+      [/firebase/i, "Firebase"],
+      [/vercel/i, "Vercel"],
+      [/netlify/i, "Netlify"],
+      [/cloudflare/i, "Cloudflare"],
+      [/wordpress|wp-content/i, "WordPress"],
+      [/shopify/i, "Shopify"],
+      [/stripe/i, "Stripe"],
+      [/auth0/i, "Auth0"],
+      [/clerk/i, "Clerk"],
+      [/tailwind/i, "Tailwind CSS"],
+      [/bootstrap/i, "Bootstrap"],
+      [/graphql/i, "GraphQL"],
+      [/trpc/i, "tRPC"],
+      [/prisma/i, "Prisma"],
+      [/mongodb|mongo/i, "MongoDB"],
+      [/postgresql|postgres/i, "PostgreSQL"],
+      [/aws|amazonaws/i, "AWS"],
+      [/google-analytics|gtag/i, "Google Analytics"],
+      [/sentry/i, "Sentry"],
+      [/datadog/i, "Datadog"],
+    ];
+
+    const htmlLower = html.toLowerCase();
+    for (const [pattern, tech] of techPatterns) {
+      if (pattern.test(htmlLower) || result.scriptSources.some(s => pattern.test(s))) {
+        result.technologies.push(tech);
+      }
+    }
+
+    // API endpoint discovery
+    const apiPatterns = [
+      /\/api\/[a-z0-9\/_-]+/gi,
+      /\/functions\/v1\/[a-z0-9\/_-]+/gi,
+      /\/rest\/v1\/[a-z0-9\/_-]+/gi,
+      /\/graphql/gi,
+      /\/v[0-9]+\/[a-z0-9\/_-]+/gi,
+      /\/auth\/[a-z0-9\/_-]+/gi,
+    ];
+
+    for (const pattern of apiPatterns) {
+      const matches = html.match(pattern);
+      if (matches) {
+        result.apiEndpoints.push(...matches);
+      }
+    }
+
+    // Deduplicate
+    result.apiEndpoints = [...new Set(result.apiEndpoints)];
+    result.technologies = [...new Set(result.technologies)];
+
+    console.log(`[Site Crawler] Discovered: ${result.technologies.length} techs, ${result.apiEndpoints.length} endpoints, ${result.scriptSources.length} scripts, ${result.formActions.length} forms`);
+  } catch (error) {
+    console.error(`[Site Crawler] Error fetching ${siteUrl}:`, error);
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -49,7 +207,34 @@ serve(async (req) => {
 
     console.log(`Auto-setup WAF for site: ${site_name} (${site_url}), user: ${userId}`);
 
-    // Ask AI to generate WAF config
+    // STEP 1: Real HTTP crawl of the target site
+    const intel = await fetchSiteIntelligence(site_url);
+
+    // Build the intelligence summary for the AI
+    const intelSummary = `
+=== REAL CRAWL DATA FOR ${site_url} ===
+
+DETECTED TECHNOLOGIES: ${intel.technologies.length > 0 ? intel.technologies.join(", ") : "Unable to detect (site may use SSR or be protected)"}
+
+DISCOVERED API ENDPOINTS:
+${intel.apiEndpoints.length > 0 ? intel.apiEndpoints.map(e => `  - ${e}`).join("\n") : "  - No API endpoints discovered in HTML"}
+
+META TAGS:
+${Object.keys(intel.metaTags).length > 0 ? Object.entries(intel.metaTags).slice(0, 10).map(([k, v]) => `  - ${k}: ${v}`).join("\n") : "  - No meta tags found"}
+
+SCRIPT SOURCES (sample):
+${intel.scriptSources.slice(0, 8).map(s => `  - ${s}`).join("\n") || "  - No external scripts"}
+
+FORM ACTIONS:
+${intel.formActions.length > 0 ? intel.formActions.map(f => `  - ${f}`).join("\n") : "  - No forms discovered"}
+
+LINK HREFS (sample):
+${intel.linkHrefs.slice(0, 15).map(l => `  - ${l}`).join("\n") || "  - No links discovered"}
+
+=== END CRAWL DATA ===
+`;
+
+    // STEP 2: Ask AI to generate WAF config using real crawl data
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -62,22 +247,37 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are DEFLECTRA, an AI-powered Web Application Firewall configuration engine.
-Given a website URL and name, analyze what type of application it likely is and generate a comprehensive security configuration.
+
+You have been provided with REAL CRAWL DATA extracted from the target website via an HTTP fetch.
+Use this actual data to generate highly specific and accurate security configurations.
+
+CRITICAL INSTRUCTIONS:
+1. Base ALL rules, rate limits, and endpoint configs on the REAL crawl data provided
+2. If technologies were detected (e.g., React, Supabase, WordPress), generate rules targeting those specific stacks
+3. If API endpoints were discovered, protect those EXACT endpoints
+4. Do NOT generate generic/placeholder rules — everything must be informed by the crawl data
+5. If the crawl returned limited data (e.g., SSR app, bot protection), make reasonable inferences from the detected technologies
 
 You must generate:
-1. WAF rules (regex patterns to detect common attacks for this type of app)
-2. Rate limiting rules (appropriate limits for common endpoints)
-3. API endpoints to monitor (common paths for this type of app)
-
-Be practical and realistic. Generate rules that would actually protect this type of application.`
+1. WAF rules (regex patterns targeting attack vectors specific to the detected tech stack)
+2. Rate limiting rules (appropriate limits for discovered endpoints)
+3. API endpoints to monitor (based on actually discovered paths)`
           },
           {
             role: "user",
-            content: `Generate WAF security configuration for:
+            content: `Generate a complete WAF security configuration for this site based on the real crawl data below:
+
 URL: ${site_url}
 Name: ${site_name || 'Unknown'}
 
-Analyze the URL to determine the type of application and generate appropriate security rules.`
+${intelSummary}
+
+Use the discovered technologies, endpoints, and patterns above to generate TARGETED security rules.
+For example:
+- If Supabase was detected, add SQL injection rules targeting Supabase query patterns
+- If React was detected, add XSS rules targeting React-specific injection vectors
+- If specific API endpoints like /functions/v1/* were found, create rate limits for those exact paths
+- If forms were discovered, protect those form action endpoints`
           }
         ],
         tools: [
@@ -85,11 +285,11 @@ Analyze the URL to determine the type of application and generate appropriate se
             type: "function",
             function: {
               name: "configure_waf",
-              description: "Configure WAF rules, rate limits, and API monitoring for a protected site",
+              description: "Configure WAF rules, rate limits, and API monitoring based on real site crawl data",
               parameters: {
                 type: "object",
                 properties: {
-                  app_type: { type: "string", description: "Detected application type" },
+                  app_type: { type: "string", description: "Detected application type based on crawl data" },
                   waf_rules: {
                     type: "array",
                     items: {
@@ -170,6 +370,7 @@ Analyze the URL to determine the type of application and generate appropriate se
 
     const config = JSON.parse(toolCall.function.arguments);
     console.log(`AI detected app type: ${config.app_type}, rules: ${config.waf_rules?.length}, rate_limits: ${config.rate_limits?.length}, endpoints: ${config.api_endpoints?.length}`);
+    console.log(`Crawl summary: ${intel.technologies.length} techs detected, ${intel.apiEndpoints.length} endpoints discovered`);
 
     // Insert WAF rules
     if (config.waf_rules?.length > 0) {
@@ -231,6 +432,10 @@ Analyze the URL to determine the type of application and generate appropriate se
       rules_created: config.waf_rules?.length || 0,
       rate_limits_created: config.rate_limits?.length || 0,
       endpoints_monitored: config.api_endpoints?.length || 0,
+      discovered: {
+        technologies: intel.technologies,
+        endpoints: intel.apiEndpoints.slice(0, 10),
+      },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
