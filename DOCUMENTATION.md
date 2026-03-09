@@ -663,6 +663,12 @@ The Rate Limiting page (`/rate-limiting`) allows users to create per-IP, per-pat
 - Active Rules (enabled)
 - Total Triggers (times limits were hit)
 
+<p align="center">
+  <img src="https://i.imgur.com/WjLFUGs.png" alt="Rate Limiting Configuration" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Rate Limiting Configuration — AI-generated rate limit rules with per-path limits, action types (throttle, block, challenge), and trigger counters.</em></p>
+
 ---
 
 ## Real-Time Block Notifications
