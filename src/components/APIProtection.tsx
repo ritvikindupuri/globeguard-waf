@@ -224,7 +224,7 @@ export default function APIProtection() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
+              'Authorization': `Bearer ${userToken}`,
               'apikey': anonKey,
             },
             body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
