@@ -186,6 +186,8 @@ export default function APIProtection() {
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userToken = sessionData?.session?.access_token || anonKey;
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
       const results: string[] = [];
