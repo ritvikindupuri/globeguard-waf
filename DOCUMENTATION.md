@@ -929,38 +929,35 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname + url.search;
 
-    // Construct WAF proxy URL with site ID and path
-    const wafProxyUrl = `https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy?site_id=052a39c2-c570-41f1-a340-50ca2f38ebef&path=${encodeURIComponent(path)}`;
+    const wafUrl = "https://mgveeoqkhthibpmmljxz.supabase.co/functions/v1/waf-proxy?site_id=9f25034d-9676-41fc-bddf-6d02394f9395&path=" + encodeURIComponent(path);
 
-    // Extract body for non-GET requests
-    const body = ['GET', 'HEAD'].includes(request.method)
-      ? undefined
-      : await request.text();
+    const body = ["GET","HEAD"].includes(request.method) ? undefined : await request.text();
 
-    // Forward to Deflectra WAF proxy
-    const wafResponse = await fetch(wafProxyUrl, {
+    const res = await fetch(wafUrl, {
       method: request.method,
       headers: {
-        'Content-Type': request.headers.get('Content-Type') || 'application/json',
-        'User-Agent': request.headers.get('User-Agent') || 'unknown',
-        'X-Forwarded-For': request.headers.get('CF-Connecting-IP') || 'unknown',
-        'Authorization': 'Bearer <SUPABASE_ANON_KEY>',
-        'apikey': '<SUPABASE_ANON_KEY>',
+        "Content-Type": request.headers.get("Content-Type") || "application/json",
+        "User-Agent": request.headers.get("User-Agent") || "unknown",
+        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "unknown",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ndmVlb3FraHRoaWJwbW1sanh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMDMyMDYsImV4cCI6MjA4ODU3OTIwNn0.o7eR_VFMDhNneaIxjVAZ18hvP6OQQotdvqRhCjgigNo",
+        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ndmVlb3FraHRoaWJwbW1sanh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMDMyMDYsImV4cCI6MjA4ODU3OTIwNn0.o7eR_VFMDhNneaIxjVAZ18hvP6OQQotdvqRhCjgigNo",
       },
       body,
     });
 
-    // Preserve binary data integrity (important for images, etc.)
-    const responseBody = await wafResponse.arrayBuffer();
+    const responseBody = await res.arrayBuffer();
+    const contentType = res.headers.get("Content-Type") || "";
 
-    // Return WAF response (either block page or origin response)
+    // If it's a block page (403 with HTML), ensure Content-Type is set correctly
+    const finalContentType = (res.status === 403 && !contentType.includes("text/html"))
+      ? "text/html; charset=utf-8"
+      : contentType;
+
     return new Response(responseBody, {
-      status: wafResponse.status,
+      status: res.status,
       headers: {
-        'Content-Type': wafResponse.headers.get('Content-Type') || 'text/html',
-        'X-Deflectra-Action': wafResponse.headers.get('X-Deflectra-Action') || 'unknown',
-        'X-Deflectra-Protected': 'true',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": finalContentType || "text/html",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   },
