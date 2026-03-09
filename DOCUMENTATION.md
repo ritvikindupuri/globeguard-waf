@@ -218,7 +218,7 @@ flowchart LR
     end
 ```
 
-<p align="center"><em>Figure 2: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
+<p align="center"><em>Figure 1: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
 
 **Implementation Details:**
 - **Data Source:** Queries `threat_logs` for entries with non-null `source_lat` and `source_lng` values
