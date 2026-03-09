@@ -230,6 +230,19 @@ location /api/ {
                 label="Cloudflare Worker (deploy to workers.dev)"
                 code={`export default {\n  async fetch(request, env) {\n    const url = new URL(request.url);\n    const path = url.pathname + url.search;\n\n    const wafUrl = "${proxyBase}?site_id=${selectedSite || '<YOUR_SITE_ID>'}&path=" + encodeURIComponent(path);\n\n    const body = ["GET","HEAD"].includes(request.method) ? undefined : await request.text();\n\n    const res = await fetch(wafUrl, {\n      method: request.method,\n      headers: {\n        "Content-Type": request.headers.get("Content-Type") || "application/json",\n        "User-Agent": request.headers.get("User-Agent") || "unknown",\n        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "unknown",\n        "Authorization": "Bearer <YOUR_SUPABASE_ANON_KEY>",\n        "apikey": "<YOUR_SUPABASE_ANON_KEY>",\n      },\n      body,\n    });\n\n    return new Response(await res.arrayBuffer(), {\n      status: res.status,\n      headers: {\n        "Content-Type": res.headers.get("Content-Type") || "text/html",\n        "Access-Control-Allow-Origin": "*",\n      },\n    });\n  },\n};`}
               />
+              <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <p className="text-xs font-semibold text-foreground mb-1">🛡️ Test the Block Page</p>
+                <p className="text-[11px] text-muted-foreground">
+                  After deploying your Cloudflare Worker, try a malicious request to verify the WAF is working:
+                </p>
+                <CopyBlock
+                  label="SQL Injection Test URL"
+                  code={`https://your-worker.workers.dev/api/users?id=1%20OR%201=1--`}
+                />
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  If the WAF detects the SQL injection, you should see the <span className="text-foreground font-medium">branded Deflectra block page</span> instead of your site content.
+                </p>
+              </div>
             </div>
 
             <div className="rounded-lg bg-muted/30 border border-border p-3">
