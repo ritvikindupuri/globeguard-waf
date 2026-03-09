@@ -548,15 +548,43 @@ The following sections describe each stage of the AI analysis in detail.
 
 6. **Logging & Visualization** — Threats are logged to `threat_logs` with full metadata including AI-estimated geographic coordinates for the 3D threat globe.
 
-### Simulate Incoming Request
+### Cloudflare Worker Domain Configuration
 
-Users can craft test requests with:
+The AI Detection page includes a **Worker Domain** input at the top where users enter their Cloudflare Worker URL (e.g., `deflectrawaf.codeworker.workers.dev`). This enables two features:
+
+1. **Block Page URL Generation** — When viewing recent AI detections, each blocked threat entry includes a "View Block Page" link that constructs a direct URL to the Cloudflare Worker with the attack path, so users can see exactly what the attacker would have seen.
+2. **Quick Test URLs** — Once the worker domain is set, the page displays a list of preset attack URLs (e.g., `/api/admin/dump-database`, `/.env`, `/api/users?id=1 OR 1=1--`) with one-click copy buttons. Users can paste these directly into their browser to verify the WAF is working and see the branded block page in action.
+
+### Quick Attack Simulation
+
+The Quick Attack Simulation feature allows users to describe an attack in natural language and have Deflectra automatically:
+
+1. **Crawl the target site** using the `auto-generate-fields` edge function
+2. **Generate a realistic attack payload** tailored to the site's tech stack
+3. **Run the attack through the WAF** via the `analyze-threat` edge function
+4. **Display results** showing whether the attack was blocked or allowed
+
+Users type a description like "SQL injection on login" or "XSS via search bar" and click **Simulate**. The system generates a complete attack scenario (path, method, body, user-agent) and immediately analyzes it.
+
+**Preset scenario chips** are provided for common attack types:
+- SQL injection on login
+- XSS via search
+- Path traversal attack
+- SSRF to internal services
+- Brute force admin panel
+- API key exfiltration
+
+### Simulate Incoming Request (Manual)
+
+For more granular control, users can manually craft test requests with:
 - **Target Protected Site** — Select from registered sites
 - **Request Path** — The URL path to test (e.g., `/api/users?id=1 OR 1=1`)
 - **Method** — GET, POST, PUT, DELETE
 - **Attacker IP** — Optional, auto-generated if blank
 - **User Agent** — Optional
 - **Request Body** — Optional JSON payload
+
+Each field has a **sparkle (✨) button** for per-field AI regeneration — clicking it re-crawls the site and generates just that one field.
 
 The test request is sent to the `analyze-threat` edge function, which calls Gemini 3.1 Pro to classify it. Results show:
 - **Verdict** — BLOCKED or ALLOWED
@@ -570,7 +598,7 @@ The test request is sent to the `analyze-threat` edge function, which calls Gemi
   <img src="https://i.imgur.com/lRJUOZi.png" alt="AI Detection Simulation Interface" width="900" />
 </p>
 
-<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenarios and manual request builder for testing WAF detection against a protected site.</em></p>
+<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenario chips, natural language input, and manual request builder for testing WAF detection against a protected site.</em></p>
 
 ### Recent AI Detections
 
@@ -699,6 +727,28 @@ sequenceDiagram
 - When a blocked threat is inserted, a Sonner toast appears with the attacker's IP and threat type
 - The hook is activated in `DashboardLayout`, so notifications work on every page
 - Blocked attacks show error-style toasts; logged threats show warning-style toasts
+
+### Notification Center
+
+The dedicated Notification Center page (`/notifications`) provides a full notification management interface:
+
+- **Filter Tabs** — All, Unread, Threats, System — for quickly narrowing down notifications
+- **Unread Badge** — The sidebar navigation shows a real-time unread count badge on the Notifications link, updated every 30 seconds
+- **Mark as Read / Dismiss** — Individual and bulk actions for managing notifications
+- **Severity-Coded Cards** — Each notification card has a colored left border matching its severity (critical=red, high=orange, medium=yellow)
+- **Unread Indicator** — Unread notifications display a blue dot and a subtle ring highlight
+- **Metadata Display** — Each notification shows the source IP, severity badge, notification type, and relative timestamp (e.g., "2m ago")
+
+### Automatic Notification Seeding
+
+The Notification Center automatically seeds notifications from recent `threat_logs` entries. When the page loads:
+
+1. It fetches the 20 most recent threat log entries
+2. Checks for existing notifications (via `threat_log_id` in metadata) to avoid duplicates
+3. Creates up to 10 new notification records from unprocessed threat logs
+4. Each seeded notification includes the threat title, AI explanation (if available), severity, and source IP
+
+This ensures users always have notifications for recent security events, even if the real-time push was missed.
 
 <p align="center">
   <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
@@ -1139,12 +1189,25 @@ erDiagram
         text alert_email
     }
 
+    notifications {
+        uuid id PK
+        uuid user_id
+        text type
+        text title
+        text message
+        text severity
+        boolean read
+        boolean dismissed
+        jsonb metadata
+        timestamptz created_at
+    }
+
     protected_sites ||--o{ threat_logs : "site_id"
     waf_rules ||--o{ threat_logs : "rule_id"
     rate_limit_rules ||--o{ rate_limit_hits : "path match"
 ```
 
-<p align="center"><em>Figure 1: Database Entity-Relationship Diagram — All seven tables and their relationships in the Deflectra WAF database.</em></p>
+<p align="center"><em>Figure 1: Database Entity-Relationship Diagram — All eight tables and their relationships in the Deflectra WAF database.</em></p>
 
 ### Table Details
 
@@ -1157,6 +1220,7 @@ erDiagram
 | `rate_limit_hits` | Per-IP request counting for rate limits | Service role only (used by waf-proxy) |
 | `api_endpoints` | Registered API endpoints with protections | Users can CRUD their own endpoints |
 | `waf_settings` | Global WAF configuration per user | Users can INSERT, UPDATE, SELECT their own settings |
+| `notifications` | Threat alerts and system events with read/dismiss state | Users can CRUD their own notifications |
 
 ---
 
