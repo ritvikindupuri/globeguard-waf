@@ -719,27 +719,51 @@ export default function AIDetection() {
                         </div>
                       )}
 
-                      {/* Block Page URL */}
-                      {blockUrl ? (
-                        <div>
-                          <p className="text-[10px] font-mono text-muted-foreground mb-1">VIEW BLOCK PAGE</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
-                              {blockUrl}
+                      {/* Block Page URL — only for blocked/challenged actions */}
+                      {(() => {
+                        const action = t.action_taken?.toLowerCase();
+                        const generatesBlockPage = action === 'blocked' || action === 'challenged';
+                        
+                        if (!generatesBlockPage) {
+                          return (
+                            <div className="bg-secondary/30 rounded-lg p-3 border border-border/30">
+                              <p className="text-[10px] font-mono text-muted-foreground mb-1">BLOCK PAGE</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                <span className="font-semibold text-foreground">No block page generated.</span>{' '}
+                                {action === 'allowed' 
+                                  ? 'This request was allowed through the WAF because it did not contain attack patterns severe enough to trigger a block. The WAF only shows a block page when a request is actively blocked — clean or low-risk requests are forwarded to your origin server normally.'
+                                  : action === 'logged'
+                                  ? 'This request was only logged for monitoring. It was flagged as suspicious but not severe enough to block. The WAF forwarded it to your origin and recorded it for review. Only requests with action "blocked" or "challenged" produce a block page.'
+                                  : `This request had action "${t.action_taken}" which does not produce a block page. Only "blocked" or "challenged" actions show the Deflectra block page to the visitor.`
+                                }
+                              </p>
                             </div>
-                            <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
-                              onClick={() => { navigator.clipboard.writeText(blockUrl); toast.success('URL copied'); }}>
-                              <Copy className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
-                              onClick={() => window.open(blockUrl, '_blank')}>
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Button>
+                          );
+                        }
+
+                        if (!blockUrl) {
+                          return <p className="text-[10px] text-muted-foreground italic">Set your Cloudflare Worker domain above to generate block page links.</p>;
+                        }
+
+                        return (
+                          <div>
+                            <p className="text-[10px] font-mono text-muted-foreground mb-1">VIEW BLOCK PAGE</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                                {blockUrl}
+                              </div>
+                              <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                onClick={() => { navigator.clipboard.writeText(blockUrl); toast.success('URL copied'); }}>
+                                <Copy className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                                onClick={() => window.open(blockUrl, '_blank')}>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground italic">Set your Cloudflare Worker domain above to generate block page links.</p>
-                      )}
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
