@@ -226,6 +226,12 @@ flowchart LR
 
 <p align="center"><em>Figure 1: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
 
+<p align="center">
+  <img src="https://i.imgur.com/4TUkgLF.png" alt="Live Threat Map with 3D Globe" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Live Threat Map — Interactive 3D Mapbox globe showing real-time attack origins with pulsing severity-coded markers and the recent threats table below.</em></p>
+
 **Implementation Details:**
 - **Data Source:** Queries `threat_logs` for entries with non-null `source_lat` and `source_lng` values
 - **Severity Colors:** Critical (red), High (orange), Medium (yellow), Low (cyan)
