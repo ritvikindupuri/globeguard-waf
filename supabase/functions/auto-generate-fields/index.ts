@@ -526,6 +526,33 @@ function buildTool(context: string, field?: string): any {
         },
       };
 
+    case "custom_attack":
+      return {
+        type: "function",
+        function: {
+          name: "generate_custom_attack",
+          description: "Generate a single realistic attack scenario based on the user's described attack type and real crawl data",
+          parameters: {
+            type: "object",
+            properties: {
+              scenario: {
+                type: "object",
+                properties: {
+                  path: { type: "string", description: "Request path with attack payload" },
+                  method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE"] },
+                  body: { type: "string", description: "Request body with attack payload (empty string if not needed)" },
+                  user_agent: { type: "string", description: "Attacker user agent string" },
+                  attack_name: { type: "string", description: "Short name for the attack type" },
+                  explanation: { type: "string", description: "Brief explanation of what this attack does and why it targets this specific app" },
+                },
+                required: ["path", "method", "body", "user_agent", "attack_name", "explanation"],
+              },
+            },
+            required: ["scenario"],
+          },
+        },
+      };
+
     default:
       throw new Error(`Unknown context: ${context}`);
   }
