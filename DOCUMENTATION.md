@@ -890,6 +890,118 @@ erDiagram
 | `analyze-threat` | AI threat analysis sandbox — classifies test requests | Manual invocation from AI Detection page |
 | `auto-setup-waf` | AI-powered rule generation — scans a site and creates rules | One-click from Protected Sites page |
 | `send-notification` | Email delivery — sends alerts via Resend API | Settings page test button |
+| `auto-generate-fields` | AI-powered form auto-fill — extracts endpoints from sites and generates configurations | "Generate with AI" buttons across all forms |
+
+---
+
+## AI Auto-Fill Configuration
+
+Deflectra features an intelligent AI-powered auto-fill system that eliminates manual configuration by automatically extracting endpoint information from your web application and generating security configurations tailored to your app's architecture.
+
+### Overview
+
+Instead of manually entering request paths, methods, rate limits, and WAF rules, users can simply click a "Generate with AI" button. The AI analyzes the protected site URL, deep-crawls the application to discover endpoints, identifies the technology stack, and auto-generates appropriate security configurations.
+
+### Supported Forms
+
+The AI auto-fill feature is available in four key configuration areas:
+
+| Form | What It Generates |
+|------|-------------------|
+| **AI Detection** | Attack simulation scenarios with realistic paths, methods, payloads, and user-agents |
+| **Rate Limiting** | Rate limit rules for sensitive endpoints (login, signup, API, webhooks) |
+| **API Shield** | Endpoint configurations with appropriate JWT, schema validation, and rate limiting toggles |
+| **Rule Engine** | Custom WAF regex rules tailored to the app's tech stack and common attack vectors |
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Form Component
+    participant EF as auto-generate-fields
+    participant AI as Gemini 3 Flash
+    participant DB as Database
+
+    U->>UI: Click "Generate with AI"
+    UI->>UI: Select protected site from dropdown
+    UI->>EF: invoke({ site_url, context })
+    EF->>AI: Analyze site URL + context
+    Note over AI: Deep crawl site<br/>Identify tech stack<br/>Discover endpoints<br/>Generate configs
+    AI-->>EF: Structured JSON response
+    EF-->>UI: Generated configurations
+    UI->>UI: Auto-populate form fields
+    U->>UI: Review and save
+    UI->>DB: Insert generated records
+```
+
+<p align="center"><em>Figure: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
+
+### Technical Implementation
+
+The `auto-generate-fields` edge function accepts two parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `site_url` | string | The URL of the protected site to analyze |
+| `context` | enum | One of: `ai_detection`, `rate_limiting`, `api_shield`, `rule_engine` |
+
+The function uses Google Gemini 3 Flash with structured tool calling to ensure responses match the expected schema for each context.
+
+### Context-Specific Generation
+
+**AI Detection Context:**
+Generates 5 realistic attack simulation scenarios including:
+- Request paths targeting common endpoints
+- HTTP methods (GET, POST, PUT, DELETE)
+- Malicious request bodies (SQLi, XSS payloads)
+- Realistic attacker user-agents
+
+**Rate Limiting Context:**
+Generates rate limit rules for:
+- Authentication endpoints (/login, /signup, /auth)
+- API endpoints with appropriate request limits
+- Webhook handlers with stricter limits
+- Public endpoints with relaxed limits
+
+**API Shield Context:**
+Generates endpoint configurations with:
+- Path and method detection
+- JWT inspection enabled for authenticated routes
+- Schema validation for POST/PUT endpoints
+- Rate limiting flags for sensitive operations
+
+**Rule Engine Context:**
+Generates WAF rules including:
+- SQLi patterns tailored to the detected database type
+- XSS patterns for the detected frontend framework
+- RCE patterns for the detected backend language
+- LFI patterns based on the server environment
+- Custom rules based on discovered vulnerabilities
+
+### User Experience
+
+1. User opens any configuration form (AI Detection, Rate Limiting, API Shield, or Rule Engine)
+2. User selects a protected site from the dropdown
+3. User clicks the "Generate with AI" button (sparkles icon)
+4. A loading spinner indicates AI analysis is in progress
+5. Form fields are automatically populated with generated values
+6. User can review, modify, and save the configuration
+
+### Edge Cases
+
+- **No Protected Sites:** The generate button is disabled with a tooltip explaining a site must be added first
+- **Generation Failure:** An error toast is shown and form fields remain empty for manual input
+- **Partial Generation:** Any successfully generated fields are populated; missing fields remain editable
+
+### Benefits
+
+| Manual Configuration | AI Auto-Fill |
+|---------------------|--------------|
+| 5-10 minutes per rule | 5 seconds per batch |
+| Requires security expertise | AI applies best practices automatically |
+| Easy to miss endpoints | AI crawls entire application |
+| Generic patterns | Patterns tailored to your tech stack |
 
 ---
 
