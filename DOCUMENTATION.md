@@ -1099,7 +1099,7 @@ sequenceDiagram
     UI->>DB: Insert generated records
 ```
 
-<p align="center"><em>Figure: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
+<p align="center"><em>Figure 1: AI Auto-Fill Flow — How clicking "Generate with AI" triggers site analysis and form population.</em></p>
 
 ### Technical Implementation
 
