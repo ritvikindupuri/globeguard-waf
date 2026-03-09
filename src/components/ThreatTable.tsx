@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -88,9 +89,34 @@ export default function ThreatTable() {
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase border font-mono font-medium", actionStyles[t.action_taken] || actionStyles.logged)}>
-                      {t.action_taken}
-                    </span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={cn("px-2 py-0.5 rounded-md text-[10px] uppercase border font-mono font-medium cursor-help", actionStyles[t.action_taken] || actionStyles.logged)}>
+                            {t.action_taken}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs">
+                          <p className="font-semibold text-foreground">
+                            {t.request_method || 'GET'} <span className="font-mono text-muted-foreground">{t.request_path || '/'}</span>
+                          </p>
+                          <p className="text-muted-foreground leading-relaxed">
+                            {t.action_taken === 'blocked'
+                              ? `Blocked: matched "${t.threat_type}" rule. The request pattern was flagged as ${t.severity} severity and automatically denied.`
+                              : t.action_taken === 'challenged'
+                              ? `Challenged: suspicious "${t.threat_type}" pattern detected. Client was issued a verification challenge.`
+                              : t.action_taken === 'logged'
+                              ? `Logged: "${t.threat_type}" pattern observed but below action threshold. Recorded for monitoring.`
+                              : `Allowed: request passed all security checks.`}
+                          </p>
+                          {t.source_ip && (
+                            <p className="font-mono text-[10px] text-muted-foreground/70">
+                              From: {t.source_ip}{t.source_country ? ` (${t.source_country})` : ''}
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground max-w-[200px] truncate font-mono">
                     {t.request_path || '—'}
