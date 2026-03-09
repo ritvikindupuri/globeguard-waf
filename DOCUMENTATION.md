@@ -43,7 +43,7 @@ Deflectra is a fully functional, AI-powered Web Application Firewall (WAF) built
 Unlike traditional WAFs that rely solely on static regex rules, Deflectra combines three layers of defense:
 
 1. **Regex-Based Rule Engine** — Pattern matching against known attack signatures (SQLi, XSS, LFI, RCE) with configurable priority ordering.
-2. **AI Threat Classification** — Google Gemini 3 Flash analyzes requests in real-time and classifies them as safe or malicious with confidence scores and geographic origin estimation.
+2. **AI Threat Classification** — Google Gemini 3.1 Pro analyzes requests in real-time and classifies them as safe or malicious with confidence scores and geographic origin estimation.
 3. **API Shield Enforcement** — JWT token validation, JSON schema validation, and per-IP rate limiting enforced at the proxy layer.
 
 Deflectra was originally built to protect the developer's personal portfolio website ([https://ritvik-website.netlify.app/](https://ritvik-website.netlify.app/)), where it actively inspects all API calls to edge functions (chatbot, contact form, authentication logging, visitor alerts). However, **anyone can create an account** on Deflectra and connect their own web applications for WAF protection.
