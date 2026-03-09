@@ -647,10 +647,26 @@ export default function AIDetection() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 ml-5 line-clamp-1">{explanation || `${t.request_method} ${t.request_path}`}</p>
                       </div>
-                      <div className="flex items-center gap-2 ml-4 shrink-0">
+                      <div className="flex items-center gap-1.5 ml-4 shrink-0">
                         <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>
                           {confidence != null ? `${confidence}%` : '—'}
                         </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            supabase.from('threat_logs').delete().eq('id', t.id).then(({ error }) => {
+                              if (error) { toast.error('Failed to delete'); return; }
+                              setRecentThreats(prev => prev.filter(x => x.id !== t.id));
+                              if (expandedThreatId === t.id) setExpandedThreatId(null);
+                              toast.success('Detection deleted');
+                            });
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                       </div>
                     </div>
