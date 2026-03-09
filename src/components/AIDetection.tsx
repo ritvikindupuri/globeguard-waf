@@ -243,6 +243,55 @@ export default function AIDetection() {
         </p>
       </div>
 
+      {/* Custom Attack Simulation */}
+      <div className="glass-card rounded-xl p-5 space-y-4 border border-primary/20">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          Quick Attack Simulation
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Describe any attack type and Deflectra's AI will crawl your site, craft a realistic payload, and test your WAF — all in one step.
+        </p>
+
+        {sites.length > 0 && !selectedSiteId && (
+          <p className="text-xs text-muted-foreground italic">Select a protected site below first.</p>
+        )}
+
+        <div className="flex gap-2">
+          <Input
+            placeholder="e.g. SQL injection on login, XSS via search bar, SSRF attack, directory traversal..."
+            value={customAttackInput}
+            onChange={(e) => setCustomAttackInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !runningCustomAttack && runCustomAttack()}
+            className="bg-secondary/50 border-border text-sm rounded-xl h-10 flex-1"
+            disabled={runningCustomAttack}
+          />
+          <Button
+            onClick={runCustomAttack}
+            disabled={runningCustomAttack || !selectedSite || !customAttackInput.trim()}
+            className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl h-10 px-4"
+          >
+            {runningCustomAttack ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Simulating...</>
+            ) : (
+              <><Zap className="w-4 h-4 mr-2" />Simulate</>
+            )}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {['SQL injection on login', 'XSS via search', 'Path traversal attack', 'SSRF to internal services', 'Brute force admin panel', 'API key exfiltration'].map((example) => (
+            <button
+              key={example}
+              onClick={() => setCustomAttackInput(example)}
+              className="px-2 py-1 rounded-lg bg-secondary/50 border border-border/50 text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Analysis Input */}
       <div className="glass-card rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
