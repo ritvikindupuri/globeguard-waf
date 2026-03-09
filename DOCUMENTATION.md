@@ -226,12 +226,6 @@ flowchart LR
 
 <p align="center"><em>Figure 1: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
 
-<p align="center">
-  <img src="https://i.imgur.com/4TUkgLF.png" alt="Live Threat Map with 3D Globe" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: Live Threat Map — Interactive 3D Mapbox globe showing real-time attack origins with pulsing severity-coded markers and the recent threats table below.</em></p>
-
 **Implementation Details:**
 - **Data Source:** Queries `threat_logs` for entries with non-null `source_lat` and `source_lng` values
 - **Severity Colors:** Critical (red), High (orange), Medium (yellow), Low (cyan)
@@ -239,6 +233,12 @@ flowchart LR
 - **Projection:** Globe projection with atmosphere effect enabled
 - **Auto-Rotation:** Globe rotates slowly at 0.3°/second when not being interacted with
 - **Click Popups:** Clicking a marker shows threat type, severity, country, and source IP
+
+<p align="center">
+  <img src="https://i.imgur.com/4TUkgLF.png" alt="Live Threat Map with 3D Globe" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Live Threat Map — Interactive 3D Mapbox globe showing real-time attack origins with pulsing severity-coded markers and the recent threats table below.</em></p>
 
 ---
 
@@ -305,12 +305,6 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: AI Auto-Setup Flow — Real HTTP crawling of the target site followed by AI-powered generation of WAF rules, rate limits, and API monitoring configs based on actual discovered content.</em></p>
 
-<p align="center">
-  <img src="https://i.imgur.com/TzVpjoW.png" alt="Protected Sites Management Page" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: Protected Sites Management — Registered origin server with active status, WAF proxy endpoint URL, SSL indicator, and blocked threat counter.</em></p>
-
 ### What the Auto-Setup Crawler Discovers
 
 The `auto-setup-waf` function uses the same `fetchSiteIntelligence()` crawler as the per-field AI generation. It extracts:
@@ -334,6 +328,12 @@ Both AI generation features now use real HTTP crawling:
 | **Per-Field AI** | ✨ sparkle buttons on forms | `auto-generate-fields` | Individual form fields or full form values (populated in UI for review before saving) |
 
 Both use the same crawling logic (`fetchSiteIntelligence`) and the same AI model (Google Gemini 3 Flash).
+
+<p align="center">
+  <img src="https://i.imgur.com/TzVpjoW.png" alt="Protected Sites Management Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Protected Sites Management — Registered origin server with active status, WAF proxy endpoint URL, SSL indicator, and blocked threat counter.</em></p>
 
 ---
 
@@ -622,17 +622,17 @@ flowchart LR
 
 <p align="center"><em>Figure 1: API Shield Test Pipeline — The four automated tests run for each endpoint when the test button is clicked.</em></p>
 
-<p align="center">
-  <img src="https://i.imgur.com/d7CoNhN.png" alt="API Shield Dashboard" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: API Shield Dashboard — Protected endpoints with JWT, schema, and rate limiting toggles, inline test results showing blocked SQL injection and missing JWT token attacks with full WAF analysis metadata.</em></p>
-
 Each test sends a real request through the `waf-proxy` edge function and checks if it passes or gets blocked:
 1. **Clean Request** — Should pass (validates WAF doesn't false-positive)
 2. **SQLi Attack** — Should be blocked (validates rule engine works)
 3. **No-JWT Request** — Should be blocked if JWT inspection is enabled
 4. **Malformed JSON** — Should be blocked if schema validation is enabled
+
+<p align="center">
+  <img src="https://i.imgur.com/d7CoNhN.png" alt="API Shield Dashboard" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: API Shield Dashboard — Protected endpoints with JWT, schema, and rate limiting toggles, inline test results showing blocked SQL injection and missing JWT token attacks with full WAF analysis metadata.</em></p>
 
 ---
 
@@ -694,17 +694,17 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: Real-Time Notification Flow — How blocked attacks trigger instant toast notifications in the dashboard via WebSocket.</em></p>
 
-<p align="center">
-  <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: Notification Center — Real-time threat alerts with severity badges, AI detection explanations, source IP tracking, and filterable notification categories.</em></p>
-
 **Implementation:**
 - The `useRealtimeThreats` hook subscribes to `INSERT` events on `threat_logs` filtered by `user_id`
 - When a blocked threat is inserted, a Sonner toast appears with the attacker's IP and threat type
 - The hook is activated in `DashboardLayout`, so notifications work on every page
 - Blocked attacks show error-style toasts; logged threats show warning-style toasts
+
+<p align="center">
+  <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Notification Center — Real-time threat alerts with severity badges, AI detection explanations, source IP tracking, and filterable notification categories.</em></p>
 
 ---
 
@@ -736,12 +736,6 @@ flowchart TD
 ```
 
 <p align="center"><em>Figure 1: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
-
-<p align="center">
-  <img src="https://i.imgur.com/mIUPEic.png" alt="Branded Block Page" width="900" />
-</p>
-
-<p align="center"><em>Figure 2: Branded Block Page — The custom-branded 403 page served to attackers, showing the animated shield logo, critical severity badge, AI-generated block reason, attacker IP, and blocked request path.</em></p>
 
 #### Step-by-Step Blocking Mechanism:
 
@@ -836,6 +830,12 @@ The WAF only serves the branded block page when a request is **actively blocked*
 | `allowed` | ❌ No | Request is clean and forwarded to origin normally — no block page is generated |
 
 This distinction is reflected in the Deflectra dashboard: when expanding a detection in the AI Detection panel, only `blocked` or `challenged` entries show a "View Block Page" link. Entries with action `logged` or `allowed` display an explanation of why no block page was generated.
+
+<p align="center">
+  <img src="https://i.imgur.com/mIUPEic.png" alt="Branded Block Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Branded Block Page — The custom-branded 403 page served to attackers, showing the animated shield logo, critical severity badge, AI-generated block reason, attacker IP, and blocked request path.</em></p>
 
 ---
 
