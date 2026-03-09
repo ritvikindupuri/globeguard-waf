@@ -548,15 +548,43 @@ The following sections describe each stage of the AI analysis in detail.
 
 6. **Logging & Visualization** — Threats are logged to `threat_logs` with full metadata including AI-estimated geographic coordinates for the 3D threat globe.
 
-### Simulate Incoming Request
+### Cloudflare Worker Domain Configuration
 
-Users can craft test requests with:
+The AI Detection page includes a **Worker Domain** input at the top where users enter their Cloudflare Worker URL (e.g., `deflectrawaf.codeworker.workers.dev`). This enables two features:
+
+1. **Block Page URL Generation** — When viewing recent AI detections, each blocked threat entry includes a "View Block Page" link that constructs a direct URL to the Cloudflare Worker with the attack path, so users can see exactly what the attacker would have seen.
+2. **Quick Test URLs** — Once the worker domain is set, the page displays a list of preset attack URLs (e.g., `/api/admin/dump-database`, `/.env`, `/api/users?id=1 OR 1=1--`) with one-click copy buttons. Users can paste these directly into their browser to verify the WAF is working and see the branded block page in action.
+
+### Quick Attack Simulation
+
+The Quick Attack Simulation feature allows users to describe an attack in natural language and have Deflectra automatically:
+
+1. **Crawl the target site** using the `auto-generate-fields` edge function
+2. **Generate a realistic attack payload** tailored to the site's tech stack
+3. **Run the attack through the WAF** via the `analyze-threat` edge function
+4. **Display results** showing whether the attack was blocked or allowed
+
+Users type a description like "SQL injection on login" or "XSS via search bar" and click **Simulate**. The system generates a complete attack scenario (path, method, body, user-agent) and immediately analyzes it.
+
+**Preset scenario chips** are provided for common attack types:
+- SQL injection on login
+- XSS via search
+- Path traversal attack
+- SSRF to internal services
+- Brute force admin panel
+- API key exfiltration
+
+### Simulate Incoming Request (Manual)
+
+For more granular control, users can manually craft test requests with:
 - **Target Protected Site** — Select from registered sites
 - **Request Path** — The URL path to test (e.g., `/api/users?id=1 OR 1=1`)
 - **Method** — GET, POST, PUT, DELETE
 - **Attacker IP** — Optional, auto-generated if blank
 - **User Agent** — Optional
 - **Request Body** — Optional JSON payload
+
+Each field has a **sparkle (✨) button** for per-field AI regeneration — clicking it re-crawls the site and generates just that one field.
 
 The test request is sent to the `analyze-threat` edge function, which calls Gemini 3.1 Pro to classify it. Results show:
 - **Verdict** — BLOCKED or ALLOWED
@@ -570,7 +598,7 @@ The test request is sent to the `analyze-threat` edge function, which calls Gemi
   <img src="https://i.imgur.com/lRJUOZi.png" alt="AI Detection Simulation Interface" width="900" />
 </p>
 
-<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenarios and manual request builder for testing WAF detection against a protected site.</em></p>
+<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenario chips, natural language input, and manual request builder for testing WAF detection against a protected site.</em></p>
 
 ### Recent AI Detections
 
