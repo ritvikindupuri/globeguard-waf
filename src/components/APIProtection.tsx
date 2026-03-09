@@ -52,8 +52,8 @@ export default function APIProtection() {
   const [newJwt, setNewJwt] = useState(true);
   const [newRate, setNewRate] = useState(true);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { status: 'pass' | 'fail' | 'blocked'; message: string } | null>>({});
-  
+  const [testResults, setTestResults] = useState<Record<string, TestResult[]>>({});
+  const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
   // AI generation state
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [aiGeneratedFields, setAiGeneratedFields] = useState<AIGeneratedFields>({});
