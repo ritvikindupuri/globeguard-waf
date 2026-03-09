@@ -2,6 +2,8 @@
 
 An AI-powered Web Application Firewall (WAF) that operates as a Layer 7 reverse proxy, combining regex-based pattern matching, Google Gemini AI threat classification, JWT validation, schema enforcement, and per-IP rate limiting to protect web applications from common attacks.
 
+> 🌐 **[Live Demo → https://aiwaf.netlify.app](https://aiwaf.netlify.app/)**
+
 > 📖 **[Full Technical Documentation →](DOCUMENTATION.md)**
 
 **Anyone can create an account** and connect their own web applications for AI-powered WAF protection.
