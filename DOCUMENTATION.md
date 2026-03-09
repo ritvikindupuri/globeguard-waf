@@ -195,6 +195,12 @@ Below the stats, the dashboard displays:
 - **Traffic Chart** — An area chart showing threats over time (24-hour buckets)
 - **Threat Table** — Recent threat log entries with severity, type, IP, and action taken
 
+<p align="center">
+  <img src="https://i.imgur.com/s3LYEx2.png" alt="Deflectra Dashboard Overview" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Dashboard Overview — Real-time stat cards, embedded Mapbox threat map, traffic activity chart, and recent threat log table.</em></p>
+
 ---
 
 ## Live Threat Map (Mapbox Globe)
@@ -219,6 +225,12 @@ flowchart LR
 ```
 
 <p align="center"><em>Figure 1: Threat Globe Data Pipeline — How threat log coordinates are rendered as severity-coded markers on the 3D Mapbox globe.</em></p>
+
+<p align="center">
+  <img src="https://i.imgur.com/4TUkgLF.png" alt="Live Threat Map with 3D Globe" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Live Threat Map — Interactive 3D Mapbox globe showing real-time attack origins with pulsing severity-coded markers and the recent threats table below.</em></p>
 
 **Implementation Details:**
 - **Data Source:** Queries `threat_logs` for entries with non-null `source_lat` and `source_lng` values
@@ -292,6 +304,12 @@ sequenceDiagram
 ```
 
 <p align="center"><em>Figure 1: AI Auto-Setup Flow — Real HTTP crawling of the target site followed by AI-powered generation of WAF rules, rate limits, and API monitoring configs based on actual discovered content.</em></p>
+
+<p align="center">
+  <img src="https://i.imgur.com/TzVpjoW.png" alt="Protected Sites Management Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Protected Sites Management — Registered origin server with active status, WAF proxy endpoint URL, SSL indicator, and blocked threat counter.</em></p>
 
 ### What the Auto-Setup Crawler Discovers
 
@@ -437,6 +455,12 @@ The Rule Engine (`/rules`) provides a CRUD interface for managing regex-based WA
 - Delete rules
 - Rules are applied in the waf-proxy in priority order
 
+<p align="center">
+  <img src="https://i.imgur.com/2vpJdL0.png" alt="Rule Engine Interface" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Rule Engine — AI-generated XSS protection rules with severity levels, action types, and toggle controls for each rule.</em></p>
+
 ---
 
 ## AI Threat Detection
@@ -540,6 +564,12 @@ The test request is sent to the `analyze-threat` edge function, which calls Gemi
 - **Explanation** — AI-generated reasoning
 - **Indicators** — Specific suspicious patterns found
 
+<p align="center">
+  <img src="https://i.imgur.com/lRJUOZi.png" alt="AI Detection Simulation Interface" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: AI Attack Simulation — Quick attack simulation with preset scenarios and manual request builder for testing WAF detection against a protected site.</em></p>
+
 ### Recent AI Detections
 
 Shows the 10 most recent entries from `threat_logs` with:
@@ -551,6 +581,14 @@ Shows the 10 most recent entries from `threat_logs` with:
   - 60-89%: Likely malicious
   - 30-59%: Suspicious, possible false positive
   - 0-29%: Probably safe
+
+### Recent AI Detections UI
+
+<p align="center">
+  <img src="https://i.imgur.com/UwFrHm4.png" alt="Recent AI Detections Panel" width="900" />
+</p>
+
+<p align="center"><em>Figure 3: Recent AI Detections — Expandable threat log entries showing AI analysis details, source IP, severity, confidence, and direct links to view the served block page.</em></p>
 
 ### Block Page Preview
 
@@ -583,6 +621,12 @@ flowchart LR
 ```
 
 <p align="center"><em>Figure 1: API Shield Test Pipeline — The four automated tests run for each endpoint when the test button is clicked.</em></p>
+
+<p align="center">
+  <img src="https://i.imgur.com/d7CoNhN.png" alt="API Shield Dashboard" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: API Shield Dashboard — Protected endpoints with JWT, schema, and rate limiting toggles, inline test results showing blocked SQL injection and missing JWT token attacks with full WAF analysis metadata.</em></p>
 
 Each test sends a real request through the `waf-proxy` edge function and checks if it passes or gets blocked:
 1. **Clean Request** — Should pass (validates WAF doesn't false-positive)
@@ -619,6 +663,12 @@ The Rate Limiting page (`/rate-limiting`) allows users to create per-IP, per-pat
 - Active Rules (enabled)
 - Total Triggers (times limits were hit)
 
+<p align="center">
+  <img src="https://i.imgur.com/WjLFUGs.png" alt="Rate Limiting Configuration" width="900" />
+</p>
+
+<p align="center"><em>Figure 1: Rate Limiting Configuration — AI-generated rate limit rules with per-path limits, action types (throttle, block, challenge), and trigger counters.</em></p>
+
 ---
 
 ## Real-Time Block Notifications
@@ -643,6 +693,12 @@ sequenceDiagram
 ```
 
 <p align="center"><em>Figure 1: Real-Time Notification Flow — How blocked attacks trigger instant toast notifications in the dashboard via WebSocket.</em></p>
+
+<p align="center">
+  <img src="https://i.imgur.com/VZ7UjTX.png" alt="Notification Center" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Notification Center — Real-time threat alerts with severity badges, AI detection explanations, source IP tracking, and filterable notification categories.</em></p>
 
 **Implementation:**
 - The `useRealtimeThreats` hook subscribes to `INSERT` events on `threat_logs` filtered by `user_id`
@@ -680,6 +736,12 @@ flowchart TD
 ```
 
 <p align="center"><em>Figure 1: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
+
+<p align="center">
+  <img src="https://i.imgur.com/mIUPEic.png" alt="Branded Block Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Branded Block Page — The custom-branded 403 page served to attackers, showing the animated shield logo, critical severity badge, AI-generated block reason, attacker IP, and blocked request path.</em></p>
 
 #### Step-by-Step Blocking Mechanism:
 
