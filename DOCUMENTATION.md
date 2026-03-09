@@ -113,7 +113,7 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        GEMINI[Google Gemini 3 Flash]
+        GEMINI[Google Gemini 3.1 Pro]
         MAPBOX[Mapbox GL]
         RESEND[Resend Email API]
         ORIGIN[Origin Server]
