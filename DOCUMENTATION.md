@@ -402,6 +402,85 @@ The Rule Engine (`/rules`) provides a CRUD interface for managing regex-based WA
 
 The AI Detection page (`/ai-detection`) provides a sandbox for testing how Deflectra's AI classifies requests, plus a view of recent AI detections.
 
+### How AI Threat Detection Works
+
+Deflectra's AI threat detection is powered by **Google Gemini 3.1 Pro** via the Lovable AI Gateway. Here's the complete flow:
+
+```mermaid
+flowchart TD
+    REQ[Incoming Request] --> REGEX{Regex Rules Match?}
+    REGEX -->|Yes| BLOCK_RULE[Block by Rule]
+    REGEX -->|No| AI_PREP[Prepare AI Context]
+    AI_PREP --> AI_CALL[Call Gemini 3.1 Pro]
+    
+    subgraph AI_ANALYSIS["AI Analysis Engine"]
+        AI_CALL --> EXTRACT[Extract Request Features]
+        EXTRACT --> PATTERNS[Pattern Recognition]
+        PATTERNS --> CLASSIFY[Threat Classification]
+        CLASSIFY --> SCORE[Confidence Scoring]
+    end
+    
+    SCORE --> DECISION{is_threat?}
+    DECISION -->|Yes + blocked| BLOCK_AI[Block by AI]
+    DECISION -->|Yes + logged| LOG_ONLY[Log & Allow]
+    DECISION -->|No| ALLOW[Forward to Origin]
+    
+    BLOCK_AI --> THREAT_LOG[(threat_logs)]
+    LOG_ONLY --> THREAT_LOG
+    THREAT_LOG --> REALTIME[Push to Dashboard]
+```
+
+<p align="center"><em>Figure: AI Threat Detection Pipeline — How requests flow through regex pre-filtering and into the Gemini 3.1 Pro AI for deep analysis.</em></p>
+
+#### Step-by-Step AI Analysis:
+
+1. **Context Preparation** — The WAF prepares a structured payload containing:
+   - HTTP method (GET, POST, PUT, DELETE)
+   - Request path and query parameters
+   - Request body (first 500 characters for performance)
+   - User-Agent header
+   - Source IP address
+
+2. **AI Model Invocation** — The payload is sent to Google Gemini 3.1 Pro via the Lovable AI Gateway with:
+   - A detailed system prompt defining DEFLECTRA's role as a WAF analyzer
+   - Instructions for detecting 10+ threat categories
+   - Structured tool calling to guarantee parseable JSON output
+
+3. **Threat Categories Detected**:
+   | Category | Code | Description |
+   |----------|------|-------------|
+   | SQL Injection | `sqli` | Database query manipulation attempts |
+   | Cross-Site Scripting | `xss` | Script injection in parameters/body |
+   | Remote Code Execution | `rce` | Command injection attempts |
+   | Local File Inclusion | `lfi` | Path traversal attacks (../../etc/passwd) |
+   | Bot/Crawler Abuse | `bot` | Automated scraping or reconnaissance |
+   | Rate Abuse | `rate_abuse` | Rapid-fire request patterns |
+   | Credential Stuffing | `credential_stuffing` | Brute-force login attempts |
+   | API Abuse | `api_abuse` | Malformed or excessive API usage |
+   | CSRF Attempts | `csrf` | Cross-site request forgery patterns |
+   | Malformed Requests | `malformed` | Invalid or corrupted HTTP structures |
+
+4. **AI Response Structure** — The AI returns:
+   ```json
+   {
+     "is_threat": true,
+     "threat_type": "sqli",
+     "severity": "critical",
+     "action": "blocked",
+     "confidence": 95,
+     "explanation": "Request contains SQL injection pattern: OR 1=1 in query parameter",
+     "indicators": ["OR 1=1", "UNION SELECT", "comment injection --"]
+   }
+   ```
+
+5. **Confidence Score Interpretation**:
+   - **90-100%** — Almost certainly an attack, auto-blocked
+   - **60-89%** — Likely malicious, blocked or challenged based on settings
+   - **30-59%** — Suspicious, may be logged for review (potential false positive)
+   - **0-29%** — Probably safe, allowed through
+
+6. **Logging & Visualization** — Threats are logged to `threat_logs` with full metadata including AI-estimated geographic coordinates for the 3D threat globe.
+
 ### Simulate Incoming Request
 
 Users can craft test requests with:
@@ -412,7 +491,7 @@ Users can craft test requests with:
 - **User Agent** — Optional
 - **Request Body** — Optional JSON payload
 
-The test request is sent to the `analyze-threat` edge function, which calls Gemini 3 Flash to classify it. Results show:
+The test request is sent to the `analyze-threat` edge function, which calls Gemini 3.1 Pro to classify it. Results show:
 - **Verdict** — BLOCKED or ALLOWED
 - **Threat Type** — SQLi, XSS, Path Traversal, etc.
 - **Confidence** — 0-100% score
