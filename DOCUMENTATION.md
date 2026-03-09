@@ -748,6 +748,32 @@ Simultaneously, the threat log insert triggers a Supabase Realtime event that pu
 
 The block page is generated server-side in the `waf-proxy` edge function and served with `Content-Type: text/html; charset=utf-8`.
 
+### When Does the Block Page Appear?
+
+The WAF only serves the branded block page when a request is **actively blocked** — meaning the request contained a recognizable attack pattern (SQL injection, path traversal, XSS, etc.) that triggered a rule or AI classification with action `blocked` or `challenged`.
+
+**Common confusion:** Visiting a normal, clean URL through the Cloudflare Worker (e.g., `https://your-worker.workers.dev/api/auth/login` as a standard GET request) will **not** show the block page. The WAF inspects it, determines it is safe, and forwards it to your origin server. This is expected behavior — the WAF is designed to be invisible to legitimate traffic.
+
+**To see the block page in action**, the request URL must contain an attack pattern that the WAF detects as malicious. Examples:
+
+| Test URL | Attack Type | Why It Triggers |
+|----------|------------|-----------------|
+| `https://your-worker.workers.dev/api/admin/dump-database` | Suspicious path | Targets a sensitive administrative endpoint |
+| `https://your-worker.workers.dev/api/users?id=1%20OR%201=1--` | SQL Injection | Classic SQLi payload in query parameter |
+| `https://your-worker.workers.dev/.env` | Path Traversal / LFI | Attempts to access environment configuration files |
+| `https://your-worker.workers.dev/api/config/secrets` | Sensitive data access | Targets secret/config exfiltration |
+
+**Summary of WAF actions and block page behavior:**
+
+| WAF Action | Block Page Shown? | What Happens |
+|------------|-------------------|--------------|
+| `blocked` | ✅ Yes | Request is rejected, attacker sees the branded block page (HTTP 403) |
+| `challenged` | ✅ Yes | Request is challenged, block page is served pending verification |
+| `logged` | ❌ No | Request is flagged as suspicious but forwarded to origin — recorded for review only |
+| `allowed` | ❌ No | Request is clean and forwarded to origin normally — no block page is generated |
+
+This distinction is reflected in the Deflectra dashboard: when expanding a detection in the AI Detection panel, only `blocked` or `challenged` entries show a "View Block Page" link. Entries with action `logged` or `allowed` display an explanation of why no block page was generated.
+
 ---
 
 ## Cloudflare Workers Integration
