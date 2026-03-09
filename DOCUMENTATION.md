@@ -831,6 +831,12 @@ The WAF only serves the branded block page when a request is **actively blocked*
 
 This distinction is reflected in the Deflectra dashboard: when expanding a detection in the AI Detection panel, only `blocked` or `challenged` entries show a "View Block Page" link. Entries with action `logged` or `allowed` display an explanation of why no block page was generated.
 
+<p align="center">
+  <img src="https://i.imgur.com/mIUPEic.png" alt="Branded Block Page" width="900" />
+</p>
+
+<p align="center"><em>Figure 2: Branded Block Page — The custom-branded 403 page served to attackers, showing the animated shield logo, critical severity badge, AI-generated block reason, attacker IP, and blocked request path.</em></p>
+
 ---
 
 ## Cloudflare Workers Integration
