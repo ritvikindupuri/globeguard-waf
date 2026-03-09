@@ -31,6 +31,19 @@ interface AIGeneratedFields {
   path?: boolean;
 }
 
+interface TestResult {
+  name: string;
+  status: 'pass' | 'blocked' | 'fail';
+  method: string;
+  path: string;
+  httpStatus: number | null;
+  severity: string;
+  action: string;
+  reason: string;
+  sourceIp: string;
+  responseSnippet: string;
+}
+
 const METHOD_STYLES: Record<string, string> = {
   GET: 'bg-primary/10 text-primary border-primary/30',
   POST: 'bg-accent/10 text-accent border-accent/30',
