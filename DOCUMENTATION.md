@@ -627,6 +627,88 @@ sequenceDiagram
 
 When the WAF blocks a request, instead of returning raw JSON, it serves a fully branded HTML page.
 
+### How Blocking Works — Complete Flow
+
+When a request is determined to be malicious (either by regex rules or AI classification), the WAF executes the following blocking sequence:
+
+```mermaid
+flowchart TD
+    THREAT[Threat Detected] --> LOG[1. Log to threat_logs]
+    LOG --> BUILD[2. Build Block Page HTML]
+    BUILD --> INJECT[3. Inject Dynamic Data]
+    INJECT --> RESPOND[4. Return 403 Response]
+    RESPOND --> NOTIFY[5. Push Real-Time Alert]
+    
+    subgraph DYNAMIC["Dynamic Data Injected"]
+        D1[Severity Level & Badge Color]
+        D2[Matched Rule Name]
+        D3[Attacker's IP Address]
+        D4[Blocked Request Path]
+        D5[HTTP Method]
+    end
+    
+    INJECT --> DYNAMIC
+```
+
+<p align="center"><em>Figure: Block Execution Flow — The sequence of events when Deflectra blocks a malicious request.</em></p>
+
+#### Step-by-Step Blocking Mechanism:
+
+**Step 1 — Threat Logging:**
+Before responding, the WAF logs the threat to the `threat_logs` table with full metadata:
+- Source IP and geo-coordinates (for globe visualization)
+- Threat type and severity
+- Matched rule ID (if regex) or AI classification
+- Request path, method, and user-agent
+- Full details as JSONB (confidence score, AI explanation, indicators)
+
+**Step 2 — Block Page Generation:**
+The `waf-proxy` edge function constructs a self-contained HTML document:
+```javascript
+const blockPageHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Blocked by Deflectra WAF</title>
+  <!-- All styles are inline — no external dependencies -->
+</head>
+<body>
+  <div class="shield">[Animated SVG shield logo]</div>
+  <span class="badge ${severity}">${severity.toUpperCase()}</span>
+  <h1>Request Blocked</h1>
+  <div class="details">
+    <div class="detail-row">Reason: ${threatType}</div>
+    <div class="detail-row">Rule: ${ruleName}</div>
+    <div class="detail-row">Your IP: ${clientIp}</div>
+    <div class="detail-row">Path: ${requestPath}</div>
+    <div class="detail-row">Method: ${method}</div>
+  </div>
+  <footer>Protected by Deflectra WAF</footer>
+</body>
+</html>`;
+```
+
+**Step 3 — Dynamic Data Injection:**
+The block page is personalized with:
+- **Severity Badge** — Color-coded: critical (red), high (orange), medium (yellow), low (cyan)
+- **Rule/Reason** — The specific rule that matched or AI classification
+- **Attacker's IP** — Shown so they know they're identified
+- **Blocked Path** — The exact URL that was rejected
+- **Method** — GET, POST, PUT, DELETE
+
+**Step 4 — HTTP Response:**
+The block page is returned with:
+```http
+HTTP/1.1 403 Forbidden
+Content-Type: text/html; charset=utf-8
+X-Deflectra-Blocked: true
+X-Deflectra-Rule: sql-injection-basic
+```
+
+**Step 5 — Real-Time Dashboard Alert:**
+Simultaneously, the threat log insert triggers a Supabase Realtime event that pushes a toast notification to the dashboard (see Real-Time Block Notifications section).
+
+### Block Page Visual Design
+
 **Block Page Features:**
 - Dark background (#0a0e1a) with subtle grid overlay
 - Animated Deflectra shield logo (SVG with cyan/blue gradient and pulsing checkmark)
