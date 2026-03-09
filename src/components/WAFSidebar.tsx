@@ -1,10 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { 
   Globe, FileCode, Activity, 
-  Server, Settings, Zap, Brain, Lock, LogOut, BookOpen
+  Server, Settings, Zap, Brain, Lock, LogOut, BookOpen, Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import deflectraLogo from '@/assets/deflectra-icon.png';
 
 const navItems = [
@@ -16,6 +18,7 @@ const navItems = [
   { to: '/api-protection', icon: Lock, label: 'API Shield' },
   { to: '/ai-detection', icon: Brain, label: 'AI Detection' },
   { to: '/rate-limiting', icon: Zap, label: 'Rate Limiting' },
+  { to: '/notifications', icon: Bell, label: 'Notifications', hasBadge: true },
   { to: '/setup-guide', icon: BookOpen, label: 'Setup Guide' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
