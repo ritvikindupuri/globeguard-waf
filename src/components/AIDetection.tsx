@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles, Zap, Copy, ExternalLink } from 'lucide-react';
+import { Brain, AlertTriangle, Send, Loader2, Globe, Shield, Info, Sparkles, Zap, Copy, ExternalLink, ChevronDown, ChevronUp, Link } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,17 @@ export default function AIDetection() {
   // Custom attack simulation
   const [customAttackInput, setCustomAttackInput] = useState('');
   const [runningCustomAttack, setRunningCustomAttack] = useState(false);
+
+  // Worker domain for block page URLs
+  const [workerDomain, setWorkerDomain] = useState(() => localStorage.getItem('deflectra_worker_domain') || '');
+  
+  // Expanded threat details
+  const [expandedThreatId, setExpandedThreatId] = useState<string | null>(null);
+
+  const saveWorkerDomain = (val: string) => {
+    setWorkerDomain(val);
+    localStorage.setItem('deflectra_worker_domain', val);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -227,6 +238,13 @@ export default function AIDetection() {
     return s === 'critical' ? 'text-threat-critical' : s === 'high' ? 'text-threat-high' : s === 'medium' ? 'text-threat-medium' : 'text-threat-low';
   };
 
+  const buildBlockPageUrl = (path: string) => {
+    const base = workerDomain.trim().replace(/\/$/, '');
+    if (!base) return null;
+    const cleanPath = path?.startsWith('/') ? path : `/${path || ''}`;
+    return `${base.startsWith('http') ? base : `https://${base}`}${cleanPath}`;
+  };
+
   const AIBadge = () => (
     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/20 text-primary border border-primary/30">
       <Sparkles className="w-2.5 h-2.5" />
@@ -241,6 +259,26 @@ export default function AIDetection() {
         <p className="text-sm text-muted-foreground">
           Simulate incoming traffic to your protected sites and let Deflectra's AI analyze it
         </p>
+      </div>
+
+      {/* Worker Domain Config */}
+      <div className="glass-card rounded-xl p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Link className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Cloudflare Worker Domain</h3>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Enter your Cloudflare Worker URL so Deflectra can generate direct block page links. This is the <span className="font-mono">*.workers.dev</span> domain (or custom domain) from your Cloudflare dashboard.
+        </p>
+        <Input
+          placeholder="e.g. my-waf.your-subdomain.workers.dev"
+          value={workerDomain}
+          onChange={(e) => saveWorkerDomain(e.target.value)}
+          className="bg-secondary/50 border-border font-mono text-sm rounded-xl h-10"
+        />
+        {workerDomain && (
+          <p className="text-[10px] text-accent font-mono">✓ Block page URLs will use: {workerDomain.startsWith('http') ? workerDomain : `https://${workerDomain}`}</p>
+        )}
       </div>
 
       {/* Custom Attack Simulation */}
@@ -475,46 +513,39 @@ export default function AIDetection() {
           )}
 
           {/* Block Page URL */}
-          {lastResult.is_threat && selectedSite && (
+          {lastResult.is_threat && (
             <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
               <p className="text-[10px] font-mono text-muted-foreground">SEE THE BLOCK PAGE LIVE</p>
-              <p className="text-[10px] text-muted-foreground">
-                If you have a Cloudflare Worker connected to this site, paste this URL in your browser to see Deflectra's block page in action:
-              </p>
               {(() => {
-                const attackPath = incomingPath || '/';
-                const workerBaseUrl = selectedSite.url.replace(/\/$/, '');
-                const blockPageUrl = `${workerBaseUrl}${attackPath.startsWith('/') ? '' : '/'}${attackPath}`;
+                const blockPageUrl = buildBlockPageUrl(incomingPath || '/');
+                if (!blockPageUrl) {
+                  return (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Set your Cloudflare Worker domain above to generate a direct block page link.
+                    </p>
+                  );
+                }
                 return (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
-                      {blockPageUrl}
+                  <>
+                    <p className="text-[10px] text-muted-foreground">
+                      Paste this URL in your browser to see Deflectra's block page:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                        {blockPageUrl}
+                      </div>
+                      <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                        onClick={() => { navigator.clipboard.writeText(blockPageUrl); toast.success('URL copied'); }}>
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                        onClick={() => window.open(blockPageUrl, '_blank')}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 rounded-xl border-border shrink-0"
-                      onClick={() => {
-                        navigator.clipboard.writeText(blockPageUrl);
-                        toast.success('URL copied to clipboard');
-                      }}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 rounded-xl border-border shrink-0"
-                      onClick={() => window.open(blockPageUrl, '_blank')}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  </>
                 );
               })()}
-              <p className="text-[10px] text-muted-foreground italic">
-                Note: The URL above uses your site's domain. If your Cloudflare Worker is on a different domain (e.g. <span className="font-mono">your-worker.workers.dev</span>), replace the base URL accordingly.
-              </p>
             </div>
           )}
         </div>
@@ -531,10 +562,10 @@ export default function AIDetection() {
               </TooltipTrigger>
               <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
                 <p className="font-semibold mb-1">AI Confidence Score</p>
-                <p className="text-muted-foreground">The percentage shown is the AI model's confidence that a request is malicious. It analyzes request path, method, body, headers &amp; IP against known attack patterns (SQLi, XSS, path traversal, etc.).</p>
+                <p className="text-muted-foreground">The percentage shown is the AI model's confidence that a request is malicious.</p>
                 <p className="mt-1.5">• <span className="text-threat-critical font-medium">90–100%</span> — Almost certainly an attack</p>
                 <p>• <span className="text-threat-high font-medium">60–89%</span> — Likely malicious</p>
-                <p>• <span className="text-threat-medium font-medium">30–59%</span> — Suspicious, possible false positive</p>
+                <p>• <span className="text-threat-medium font-medium">30–59%</span> — Suspicious</p>
                 <p>• <span className="text-threat-low font-medium">0–29%</span> — Probably safe</p>
               </TooltipContent>
             </Tooltip>
@@ -550,23 +581,142 @@ export default function AIDetection() {
               const confidence = rawConf != null
                 ? (rawConf <= 1 ? Math.round(rawConf * 100) : Math.round(rawConf))
                 : null;
+              const isExpanded = expandedThreatId === t.id;
+              const explanation = details?.ai_analysis?.reason || details?.explanation || details?.block_reason || '';
+              const indicators = details?.indicators || details?.ai_analysis?.indicators || details?.raw_request ? null : null;
+              const rawRequest = details?.raw_request || {};
+              const blockUrl = buildBlockPageUrl(t.request_path || '/');
+
               return (
-                <div key={t.id} className="px-5 py-3 hover:bg-secondary/20 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className={cn("w-3.5 h-3.5", severityColor(t.severity))} />
-                        <span className="text-sm font-semibold text-foreground">{t.threat_type}</span>
-                        <span className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</span>
+                <div key={t.id} className="transition-colors">
+                  <button
+                    onClick={() => setExpandedThreatId(isExpanded ? null : t.id)}
+                    className="w-full px-5 py-3 hover:bg-secondary/20 transition-colors text-left"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className={cn("w-3.5 h-3.5 shrink-0", severityColor(t.severity))} />
+                          <span className="text-sm font-semibold text-foreground">{t.threat_type}</span>
+                          <span className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 ml-5 line-clamp-1">{explanation || `${t.request_method} ${t.request_path}`}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 ml-5">{details?.ai_analysis?.reason || details?.explanation || `${t.request_method} ${t.request_path}`}</p>
+                      <div className="flex items-center gap-2 ml-4 shrink-0">
+                        <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>
+                          {confidence != null ? `${confidence}%` : '—'}
+                        </p>
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                      </div>
                     </div>
-                    <div className="text-right ml-4">
-                      <p className={cn("text-sm font-bold font-mono", severityColor(t.severity))}>
-                        {confidence != null ? `${confidence}%` : '—'}
-                      </p>
+                  </button>
+
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <div className="px-5 pb-4 space-y-3 bg-secondary/10 border-t border-border/30">
+                      {/* AI Analysis */}
+                      <div className="pt-3">
+                        <p className="text-[10px] font-mono text-muted-foreground mb-1.5">AI ANALYSIS</p>
+                        <p className="text-xs text-foreground leading-relaxed">{explanation}</p>
+                      </div>
+
+                      {/* Attack Details Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">METHOD</p>
+                          <p className="text-xs font-mono text-foreground">{t.request_method || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">PATH</p>
+                          <p className="text-xs font-mono text-foreground break-all">{t.request_path || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">SOURCE IP</p>
+                          <p className="text-xs font-mono text-foreground">{t.source_ip}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">COUNTRY</p>
+                          <p className="text-xs font-mono text-foreground">{t.source_country || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">SEVERITY</p>
+                          <p className={cn("text-xs font-mono font-bold uppercase", severityColor(t.severity))}>{t.severity}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">ACTION</p>
+                          <p className="text-xs font-mono text-foreground uppercase">{t.action_taken}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">CONFIDENCE</p>
+                          <p className="text-xs font-mono text-foreground">{confidence != null ? `${confidence}%` : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground">THREAT TYPE</p>
+                          <p className="text-xs font-mono text-foreground">{details?.ai_analysis?.threat_type || t.threat_type}</p>
+                        </div>
+                      </div>
+
+                      {/* User Agent */}
+                      {t.user_agent && (
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground mb-1">USER AGENT</p>
+                          <p className="text-[10px] font-mono text-foreground bg-secondary/50 rounded-lg px-2 py-1.5 break-all">{t.user_agent}</p>
+                        </div>
+                      )}
+
+                      {/* Indicators */}
+                      {(details?.indicators?.length > 0 || rawRequest?.body) && (
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground mb-1">INDICATORS</p>
+                          <div className="flex flex-wrap gap-1">
+                            {(details?.indicators || []).map((ind: string, i: number) => (
+                              <span key={i} className="px-2 py-0.5 bg-secondary/50 rounded-md text-[10px] font-mono text-foreground border border-border/50">{ind}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* How AI Constructed the Attack */}
+                      {rawRequest && Object.keys(rawRequest).length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground mb-1">HOW THE AI EXTRACTED THIS ATTACK</p>
+                          <div className="bg-secondary/50 rounded-lg p-3 space-y-1.5 text-[10px] font-mono text-foreground">
+                            {rawRequest.url && <p><span className="text-muted-foreground">URL:</span> {rawRequest.url}</p>}
+                            {rawRequest.method && <p><span className="text-muted-foreground">Method:</span> {rawRequest.method}</p>}
+                            {rawRequest.protected_site && <p><span className="text-muted-foreground">Target Site:</span> {rawRequest.protected_site}</p>}
+                            {rawRequest.body && (
+                              <div>
+                                <span className="text-muted-foreground">Payload:</span>
+                                <pre className="mt-1 whitespace-pre-wrap break-all text-foreground bg-background/50 rounded p-2">{typeof rawRequest.body === 'string' ? rawRequest.body : JSON.stringify(rawRequest.body, null, 2)}</pre>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Block Page URL */}
+                      {blockUrl ? (
+                        <div>
+                          <p className="text-[10px] font-mono text-muted-foreground mb-1">VIEW BLOCK PAGE</p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-3 py-2 font-mono text-xs text-foreground break-all select-all">
+                              {blockUrl}
+                            </div>
+                            <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                              onClick={() => { navigator.clipboard.writeText(blockUrl); toast.success('URL copied'); }}>
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 px-2.5 rounded-xl border-border shrink-0"
+                              onClick={() => window.open(blockUrl, '_blank')}>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic">Set your Cloudflare Worker domain above to generate block page links.</p>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
