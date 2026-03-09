@@ -186,6 +186,8 @@ export default function APIProtection() {
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userToken = sessionData?.session?.access_token || anonKey;
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/waf-proxy`;
 
       const results: string[] = [];
@@ -198,7 +200,7 @@ export default function APIProtection() {
             method: ep.method,
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
+              'Authorization': `Bearer ${userToken}`,
               'apikey': anonKey,
             },
             ...(ep.method === 'POST' ? { body: JSON.stringify({ message: "hello" }) } : {}),
@@ -222,7 +224,7 @@ export default function APIProtection() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
+              'Authorization': `Bearer ${userToken}`,
               'apikey': anonKey,
             },
             body: JSON.stringify({ username: "admin", password: "' OR 1=1--" }),
@@ -272,7 +274,7 @@ export default function APIProtection() {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${anonKey}`,
+                'Authorization': `Bearer ${userToken}`,
                 'apikey': anonKey,
               },
               body: 'this is not json{{{',
