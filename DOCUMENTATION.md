@@ -1155,9 +1155,9 @@ sequenceDiagram
 
 <p align="center"><em>Figure 1: AI Auto-Fill Flow — Real HTTP crawling followed by AI analysis for accurate configuration generation.</em></p>
 
-### Site Intelligence Extraction
+### Site Intelligence Extraction (Shared Crawler)
 
-The `auto-generate-fields` edge function performs a **real HTTP fetch** of the target site and extracts the following intelligence:
+Both `auto-setup-waf` (site onboarding) and `auto-generate-fields` (per-field AI generation) use the same `fetchSiteIntelligence()` crawler function. This function performs a **real HTTP fetch** of the target site and extracts the following intelligence:
 
 | Data Extracted | How It's Used |
 |----------------|---------------|
