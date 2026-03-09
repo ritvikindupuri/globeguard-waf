@@ -145,6 +145,19 @@ serve(async (req) => {
     let matchedRule: any = null;
 
     // ──────────────────────────────────────────────
+    // 0. LOAD WAF SETTINGS
+    // ──────────────────────────────────────────────
+    const { data: wafSettings } = await supabase
+      .from("waf_settings")
+      .select("*")
+      .eq("user_id", site.user_id)
+      .maybeSingle();
+
+    const aiDetectionEnabled = wafSettings?.ai_detection_enabled ?? true;
+    const apiProtectionEnabled = wafSettings?.api_protection_enabled ?? true;
+    const rateLimitingEnabled = wafSettings?.rate_limiting_enabled ?? true;
+
+    // ──────────────────────────────────────────────
     // 1. API SHIELD: Check endpoint-specific protections
     // ──────────────────────────────────────────────
     const { data: apiEndpoints } = await supabase
